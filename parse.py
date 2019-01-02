@@ -37,12 +37,20 @@ def main():
     train_file = "sample_data/train"
     dev_file = "sample_data/dev"
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
-    print(train_passages[0])
+
+    # peak
+    peak_passage = train_passages[0]
+    print(peak_passage.layer("0").words)
+
 
     """
+    print(train_passages[0])
     peak: train_passages[0]:
-    [H [A Jolie] [P suffered] [A [P IMPLICIT] [A* Jolie] [A [C episodes] [E [R of] [E suicidal] [C depression] ] ] ] ] [L throughout] [H [A her] [S [C teens] [N and] [C [E early] [C twenties] [U .] ] ] ]
+    [L Additionally] [U ,] [H [A [E [C Carey] [R 's] ] [E [E newly] [C slimmed] ] [C figure] ] [D began] [F to] 
+    [P change] ] [U ,] [L as] [H [A she] [P stopped] [A [E her] [E exercise] [C routines] ] ] 
+    [L and] [H [A* she] [P gained] [A weight] [U .] ] 
     """
+
 
 
 
