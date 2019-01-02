@@ -9,22 +9,123 @@ import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
 
+torch.manual_seed(1)
+
 from ucca import diffutil, ioutil, textutil, layer0, layer1
 from ucca.evaluation import LABELED, UNLABELED, EVAL_TYPES, evaluate as evaluate_ucca
 from ucca.normalization import normalize
 
-
-
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+class Vocab:
+    def __init__(self):
+        self.word2index = {}
+        self.word2count = {}
+        self.index2word = {}
+        self.n_words = 0
+
+    def addSentence(self, words_in_sent):
+        for word in words_in_sent:
+            self.addWord(word)
+
+    def addWord(self, word):
+        if word not in self.word2index:
+            self.word2index[word] = self.n_words
+            self.word2count[word] = 1
+            self.index2word[self.n_words] = word
+            self.n_words += 1
+        else:
+            self.word2count[word] += 1
+
+class RNNModel(nn.Module):
+    def __init__(self, vocab_size):
+        super(RNNEncoder, self).__init__()
+        self.num_directions = 2
+        self.hidden_size= 500
+        self.input_size = 300
+        self.num_layers = 2
+        self.dropout = 0.3
+        self.batch = 1
+        self.bidirectional = True
+
+        self.hidden_size = self.hidden_size // self.num_directions
+
+        # TODO: use pretrained embedding
+        self.embedding = nn.Embedding(vocab_size, self.hidden_size)
+        self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
+                            dropout=self.dropout, bidirectional=self.bidirectional)
+        self.hidden = self.init_hidden()
+
+    def init_hidden(self):
+        # h_0: (num_layers * num_directions, batch, hidden_size)
+        # c_0: (num_layers * num_directions, batch, hidden_size)
+        return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device),
+                torch.zeros(4, self.batch_size, self.hidden_dim, device=device))
+
+    def forward(self, input):
+        # input should be of size seq_len, batch, input_size
+        # output: (seq_len, batch, num_directions * hidden_size). output feature for each time step
+        # (h_n, c_n) = hidden_final
+        # h_n: (num_layers * num_directions, batch, hidden_size)
+        # c_n: (num_layers * num_directions, batch, hidden_size)
+        emb = self.embeddings(input)
+        output, hidden_final = self.lstm(emb, self.hidden)
+        return output, hidden_final
 
 # data reader from xml
 def read_passages(file_dirs):
     return ioutil.read_files_and_dirs(file_dirs)
 
+def prepareData(vocab, text):
+    for sent in text:
+        vocab.addSentence(sent)
+    return vocab
+
+def get_text(passages):
+    text_list = []
+    for passage in passages:
+        l0 = passage.layer("0")
+        words_in_text = [i.text for i in l0.all]
+        text_list.append(words_in_text)
+    return text_list
+
+def indexesFromSentence(vocab, sentence):
+    return [vocab.word2index[word] for word in sentence]
+
+def tensorFromSentence(vocab, sentence):
+    indexes = indexesFromSentence(vocab, sentence)
+    return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 
+def train(sent_tensor, sent_passage, model, model_optimizer, criterion):
+    model_optimizer.zero_grad()
+
+    output, hidden = model(sent_tensor)
+
+
+
+
+def trainIters(n_words, train_text_tensor, train_passages):
+
+    # TODO: learning_rate decay
+    learning_rate = 0.05
+    n_epoch = 100
+    criterion = nn.NLLLoss()
+
+    model = RNNModel(n_words).to(device)
+    start = time.time()
+
+    plot_losses = []
+    print_loss_total = 0  # Reset every print_every
+    plot_loss_total = 0  # Reset every plot_every
+
+    model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+
+    for epoch in range(1, n_epoch + 1):
+        # TODO: add batch
+        for sent_tensor, sent_passage in zip(train_text_tensor, train_passages):
+            loss = train(sent_tensor, sent_passage, model, model_optimizer, criterion)
 
 
 
@@ -38,9 +139,24 @@ def main():
     dev_file = "sample_data/dev"
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
 
-    # peak
-    peak_passage = train_passages[0]
-    print(peak_passage.layer("0").words)
+    # prepare data
+    vocab = Vocab()
+    train_text = get_text(train_passages)
+    dev_text = get_text(dev_passages)
+    vocab = prepareData(vocab, train_text)
+    vocab = prepareData(vocab, dev_text)
+    train_text_tensor = [tensorFromSentence(vocab, sent) for sent in train_text]
+
+
+    trainIters(vocab.n_words, train_text_tensor, train_passages)
+
+
+
+    # # peak
+    # peak_passage = train_passages[0]
+    # l0 = peak_passage.layer("0")
+    # print([i.text for i in l0.all])
+
 
 
     """
