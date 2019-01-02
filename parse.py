@@ -20,10 +20,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # data reader from xml
-def read_passages(args, files):
-    expanded = [f for pattern in files for f in sorted(glob(pattern)) or (pattern,)]
-    return ioutil.read_files_and_dirs(expanded, sentences=args.sentences, paragraphs=args.paragraphs,
-                                      converters=CONVERTERS, lang=Config().args.lang)
+def read_passages(file_dirs):
+    return ioutil.read_files_and_dirs(file_dirs)
 
 
 
@@ -34,8 +32,17 @@ def read_passages(args, files):
 
 
 def main():
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
-    dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
+    # train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
+    # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
+    train_file = "sample_data/train"
+    dev_file = "sample_data/dev"
+    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    print(train_passages[0])
+
+    """
+    peak: train_passages[0]:
+    [H [A Jolie] [P suffered] [A [P IMPLICIT] [A* Jolie] [A [C episodes] [E [R of] [E suicidal] [C depression] ] ] ] ] [L throughout] [H [A her] [S [C teens] [N and] [C [E early] [C twenties] [U .] ] ] ]
+    """
 
 
 
