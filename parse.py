@@ -40,28 +40,27 @@ class Vocab:
 
 class RNNModel(nn.Module):
     def __init__(self, vocab_size):
-        super(RNNEncoder, self).__init__()
+        super(RNNModel, self).__init__()
         self.num_directions = 2
         self.hidden_size= 500
         self.input_size = 300
         self.num_layers = 2
         self.dropout = 0.3
-        self.batch = 1
-        self.bidirectional = True
+        self.batch_size = 1
 
         self.hidden_size = self.hidden_size // self.num_directions
 
         # TODO: use pretrained embedding
-        self.embedding = nn.Embedding(vocab_size, self.hidden_size)
+        self.embedding = nn.Embedding(vocab_size, self.input_size)
         self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
-                            dropout=self.dropout, bidirectional=self.bidirectional)
+                            dropout=self.dropout, bidirectional=(self.num_directions==2))
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
         # h_0: (num_layers * num_directions, batch, hidden_size)
         # c_0: (num_layers * num_directions, batch, hidden_size)
-        return (torch.zeros(4, self.batch_size, self.hidden_dim, device=device),
-                torch.zeros(4, self.batch_size, self.hidden_dim, device=device))
+        return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
+                torch.zeros(4, self.batch_size, self.hidden_size, device=device))
 
     def forward(self, input):
         # input should be of size seq_len, batch, input_size
@@ -69,9 +68,28 @@ class RNNModel(nn.Module):
         # (h_n, c_n) = hidden_final
         # h_n: (num_layers * num_directions, batch, hidden_size)
         # c_n: (num_layers * num_directions, batch, hidden_size)
-        emb = self.embeddings(input)
+        emb = self.embedding(input)
         output, hidden_final = self.lstm(emb, self.hidden)
         return output, hidden_final
+
+class AttentionModel(nn.Module):
+    def __init__(self):
+        super(AttentionModel, self).__init__()
+        self.max_length = 70
+        self.hidden_size = 250
+
+        self.attn = nn.Linear(500, self.max_length)
+
+
+    def forward(self, input):
+        # TODO: check the size of input (should be the following. Need to verify for batch profcessing)
+        # TODO: recalculate the weights/softmax after zero-off those after the current word (may change the grad tho)
+        # TODO: instead of input (output of the LSTM at each timestep), combine with the embedding of the current word
+        # input: (batch, hidden_size)
+        # attn_weights: (batch, max_length)
+        raw_attn_weights = F.softmax(self.attn(input), dim=1)
+        return raw_attn_weights
+
 
 # data reader from xml
 def read_passages(file_dirs):
@@ -98,10 +116,35 @@ def tensorFromSentence(vocab, sentence):
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 
-def train(sent_tensor, sent_passage, model, model_optimizer, criterion):
+def process(sent_passage):
+    pass
+
+def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion):
     model_optimizer.zero_grad()
+    attn_optimizer.zero_grad()
+
+    loss = 0
 
     output, hidden = model(sent_tensor)
+
+    # this can be considered as teacher forcing?
+    for t, o_t in enumerate(output):
+        # for each time step
+        attn_weight = attn(o_t)
+        loss += criterion(attn_weight, )
+
+    loss.backward()
+
+    model_optimizer.step()
+    attn_optimizer.step()
+
+    return loss.item / len(output)
+
+
+
+
+
+
 
 
 
@@ -114,6 +157,8 @@ def trainIters(n_words, train_text_tensor, train_passages):
     criterion = nn.NLLLoss()
 
     model = RNNModel(n_words).to(device)
+    attn = AttentionModel.to(device)
+
     start = time.time()
 
     plot_losses = []
@@ -121,11 +166,13 @@ def trainIters(n_words, train_text_tensor, train_passages):
     plot_loss_total = 0  # Reset every plot_every
 
     model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+    attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
 
+    # TODO: need to shuffle the order of sentences in each iteration
     for epoch in range(1, n_epoch + 1):
         # TODO: add batch
         for sent_tensor, sent_passage in zip(train_text_tensor, train_passages):
-            loss = train(sent_tensor, sent_passage, model, model_optimizer, criterion)
+            loss = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion)
 
 
 
@@ -167,7 +214,7 @@ def main():
     [L and] [H [A* she] [P gained] [A weight] [U .] ] 
     """
 
-
+#[L Additionally] [U ,] [H [A [E [C Carey] [R s] ] [E [E newly] [C slimmed] ] [C figure] ] [D began] [F to] [P change] ] [U ,] [L as] [H [A she] [P stopped] [A [E her] [E exercise] [C routines] ] ] [L and] [H [A* she] [P gained] [A weight] [U .] ]
 
 
 if __name__ == "__main__":
