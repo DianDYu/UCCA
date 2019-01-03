@@ -155,7 +155,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     for i, token in enumerate(linearized_target):
 
         # new node
-        if token[0] == "[":
+        if token[0] == "[" and token[-1] != "*":
             stack.append(index)
 
         # terminal node
@@ -172,8 +172,10 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             stack.pop()
 
         # remote: ignore for now
+        elif token[0] == "[" and token[-1] == "*":
+            continue
         elif len(token) > 1 and token[-1] == "]" and stack[-1][-1] == "*":
-            stack.pop()
+            continue
 
         # close a node
         elif token == "]":
@@ -183,7 +185,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             attn_weight = attn(output[current_index], left_border)
             loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
             # TODO: recursively compute new loss
-            
+
 
 
 
