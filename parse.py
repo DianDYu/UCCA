@@ -101,6 +101,10 @@ def prepareData(vocab, text):
     return vocab
 
 def get_text(passages):
+    """
+    :param a lsit of passages: 
+    :return: a list of list of tokens (tokenized words) in the original sentence
+    """"
     text_list = []
     for passage in passages:
         l0 = passage.layer("0")
@@ -124,13 +128,19 @@ def linearize(sent_passage):
     return linearized
 
 
-def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion):
+def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent):
     model_optimizer.zero_grad()
     attn_optimizer.zero_grad()
 
     loss = 0
 
     output, hidden = model(sent_tensor)
+
+    assert len(sent_tensor) == len(ori_sent), "sentence should have the same length"
+
+
+    # TODO: implement non-teacher forcing version
+    # TODO: move this to an external function
 
     # this can be considered as teacher forcing?
     # for t, o_t in enumerate(output):
@@ -143,17 +153,39 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     index = 0
     stack = []
     for i, token in enumerate(linearized_target):
+
         # new node
         if token[0] == "[":
             stack.append(index)
+
         # terminal node
         elif len(token) > 1 and token[-1] == "]" and stack[-1][-1] != "*":
+            assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
+            #
+            if linearized_target[+1] != "]":
+                # attend to itself
+                assert token[:-1] == ori_sent[index], "the terminal word should be the same"
+                attn_weight = attn(output[index])
+                loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
+            index += 1
+            # shouldn't pop for label prediction purposes
+            stack.pop()
 
         # remote: ignore for now
         elif len(token) > 1 and token[-1] == "]" and stack[-1][-1] == "*":
             stack.pop()
+
         # close a node
         elif token == "]":
+            current_index = index - 1
+            left_border = stack.pop()
+            # TODO: check if the same terminal word as that in the ori_sent
+            attn_weight = attn(output[current_index], left_border)
+            loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
+            # TODO: recursively compute new loss
+            
+
+
 
 
 
@@ -173,7 +205,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
 
 
-def trainIters(n_words, train_text_tensor, train_passages):
+def trainIters(n_words, train_text_tensor, train_passages, train_text):
 
     # TODO: learning_rate decay
     learning_rate = 0.05
@@ -195,8 +227,8 @@ def trainIters(n_words, train_text_tensor, train_passages):
     # TODO: need to shuffle the order of sentences in each iteration
     for epoch in range(1, n_epoch + 1):
         # TODO: add batch
-        for sent_tensor, sent_passage in zip(train_text_tensor, train_passages):
-            loss = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion)
+        for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
+            loss = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
 
 
 
