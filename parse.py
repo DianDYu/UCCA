@@ -87,7 +87,7 @@ class AttentionModel(nn.Module):
         # TODO: instead of input (output of the LSTM at each timestep), combine with the embedding of the current word
         # input: (batch, hidden_size)
         # attn_weights: (batch, max_length)
-        raw_attn_weights = F.softmax(self.attn(input), dim=1)
+        raw_attn_weights = F.log_softmax(self.attn(input), dim=1)
         return raw_attn_weights
 
 
@@ -116,8 +116,13 @@ def tensorFromSentence(vocab, sentence):
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
 
-def process(sent_passage):
-    pass
+def linearize(sent_passage):
+    # TODO: this may not be the perfect way to get the boundary
+    l1 = sent_passage._layers["1"]
+    node0 = l1.heads[0]
+    linearized = str(node0)
+    return linearized
+
 
 def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion):
     model_optimizer.zero_grad()
@@ -128,10 +133,29 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     output, hidden = model(sent_tensor)
 
     # this can be considered as teacher forcing?
-    for t, o_t in enumerate(output):
-        # for each time step
-        attn_weight = attn(o_t)
-        loss += criterion(attn_weight, )
+    # for t, o_t in enumerate(output):
+    #     # for each time step
+    #     attn_weight = attn(o_t)
+    #     # TODO: try to see if we can mask losses for predictions outside of the current window
+    #     loss += criterion(attn_weight, )
+
+    linearized_target = linearize(sent_passage)
+    index = 0
+    stack = []
+    for i, token in enumerate(linearized_target):
+        # new node
+        if token[0] == "[":
+            stack.append(index)
+        # terminal node
+        elif len(token) > 1 and token[-1] == "]" and stack[-1][-1] != "*":
+
+        # remote: ignore for now
+        elif len(token) > 1 and token[-1] == "]" and stack[-1][-1] == "*":
+            stack.pop()
+        # close a node
+        elif token == "]":
+
+
 
     loss.backward()
 
