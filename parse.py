@@ -91,6 +91,18 @@ class AttentionModel(nn.Module):
         return raw_attn_weights
 
 
+class LabelModel(nn.Module):
+    def __init__(self):
+        super(LabelModel, self).__init__()
+        self.lables = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T"]
+        self.label_size = len(self.labels)
+        self.linear = nn.Linear(500, self.label_size)
+
+    def forward(self, input):
+        pred_label_tensor = F.log_softmax(self.linear(input), dim=1)
+        return pred_label_tensor
+
+
 # data reader from xml
 def read_passages(file_dirs):
     return ioutil.read_files_and_dirs(file_dirs)
