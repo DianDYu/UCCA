@@ -176,13 +176,20 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
         if token[0] == "[" and token[-1] != "*":
             stack.append(index)
 
+        # ignore IMPLICIT edges
+        elif token == "IMPLICIT]":
+            stack.pop()
+            i += 1
+            continue
+
         # terminal node
         elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
             assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
             #
             if linearized_target[i + 1] != "]":
                 # attend to itself
-                assert token[:-1] == ori_sent[index], "the terminal word should be the same"
+                assert token[:-1] == ori_sent[index], """the terminal word: %s should be the same
+                 as ori_sent: %s""" % (token[:-1], ori_sent[index])
                 attn_weight = attn(output[index])
                 loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
             index += 1
