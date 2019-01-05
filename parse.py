@@ -145,6 +145,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     attn_optimizer.zero_grad()
 
     loss = 0
+    max_recur = 5
 
     output, hidden = model(sent_tensor)
 
@@ -164,8 +165,11 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     linearized_target = linearize(sent_passage)
     index = 0
     stack = []
-    for i, token in enumerate(linearized_target):
 
+    i = 0
+    # for i, token in enumerate(linearized_target):
+    while i < len(linearized_target):
+        token = linearized_target[i]
         # new node
         if token[0] == "[" and token[-1] != "*":
             stack.append(index)
@@ -194,11 +198,51 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             current_index = index - 1
             left_border = stack.pop()
             # TODO: check if the same terminal word as that in the ori_sent
-            attn_weight = attn(output[current_index], left_border)
-            loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
+            attn_weight = attn(output[current_index])
+            loss += criterion(attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
             # TODO: recursively compute new loss
 
+            # teach forcing
+            for r in range(1, max_recur + 1):
+                node_output = output[current_index] - output[left_border]
+                node_attn_weight = attn(node_output)
+                top_k_value, top_k_ind = torch.topk(node_attn_weight, 1)
 
+                if r + 1 < len(linearized_target):
+                    if linearized_target[r + 1] == "]":
+                        left_border = stack.pop()
+                        loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                        i += 1
+                    else:
+                        loss += criterion(node_attn_weight, torch.tensor([current_index], dtype=torch.long, device=device))
+                        break
+                else:
+                    left_border = stack.pop()
+                    loss += loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                    i += 1
+
+        i += 1
+
+        # consider from the model (not teacher-forcing)
+        # r = 0
+        # while r < max_recur:
+        #     node_output = output[current_index] - output[left_border]
+        #     node_attn_weight = attn(node_output)
+        #
+        #     top_k_value, top_k_ind = torch.topk(node_attn_weight, 1)
+        #     if i + 1 < len(linearized_target):
+        #         next_token = linearized_target[i + 1]
+        #         if next_token == "]":
+
+        #         else:
+        #             break
+
+        #     # this is the last element. Attend to the beginning
+        #     else:
+        #         left_most_border = stack.pop()
+        #         loss += loss += criterion(attn_weight, torch.tensor([left_most_border], dtype=torch.long, device=device))
+        #
+        #     r += 1
 
 
 
