@@ -15,8 +15,8 @@ from ucca import diffutil, ioutil, textutil, layer0, layer1
 from ucca.evaluation import LABELED, UNLABELED, EVAL_TYPES, evaluate as evaluate_ucca
 from ucca.normalization import normalize
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = "cpu"
 
 class Vocab:
     def __init__(self):
@@ -37,6 +37,7 @@ class Vocab:
             self.n_words += 1
         else:
             self.word2count[word] += 1
+
 
 class RNNModel(nn.Module):
     def __init__(self, vocab_size):
@@ -72,6 +73,7 @@ class RNNModel(nn.Module):
         output, hidden_final = self.lstm(emb, self.hidden)
         return output, hidden_final
 
+
 class AttentionModel(nn.Module):
     def __init__(self):
         super(AttentionModel, self).__init__()
@@ -79,7 +81,6 @@ class AttentionModel(nn.Module):
         self.hidden_size = 250
 
         self.attn = nn.Linear(500, self.max_length)
-
 
     def forward(self, input):
         # TODO: check the size of input (should be the following. Need to verify for batch profcessing)
@@ -116,7 +117,7 @@ def get_text(passages):
     """
     :param a lsit of passages: 
     :return: a list of list of tokens (tokenized words) in the original sentence
-    """"
+    """
     text_list = []
     for passage in passages:
         l0 = passage.layer("0")
@@ -136,7 +137,7 @@ def linearize(sent_passage):
     # TODO: this may not be the perfect way to get the boundary
     l1 = sent_passage._layers["1"]
     node0 = l1.heads[0]
-    linearized = str(node0)
+    linearized = str(node0).split()
     return linearized
 
 
@@ -170,15 +171,16 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     # for i, token in enumerate(linearized_target):
     while i < len(linearized_target):
         token = linearized_target[i]
+        print(token)
         # new node
         if token[0] == "[" and token[-1] != "*":
             stack.append(index)
 
         # terminal node
-        elif len(token) > 1 and token[-1] == "]" and stack[-1][-1] != "*":
+        elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
             assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
             #
-            if linearized_target[+1] != "]":
+            if linearized_target[i + 1] != "]":
                 # attend to itself
                 assert token[:-1] == ori_sent[index], "the terminal word should be the same"
                 attn_weight = attn(output[index])
@@ -189,9 +191,10 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
         # remote: ignore for now
         elif token[0] == "[" and token[-1] == "*":
+            i += 2
             continue
-        elif len(token) > 1 and token[-1] == "]" and stack[-1][-1] == "*":
-            continue
+        # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] == "*":
+        #     continue
 
         # close a node
         elif token == "]":
@@ -218,31 +221,31 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
                         break
                 else:
                     left_border = stack.pop()
-                    loss += loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                    loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
                     i += 1
 
         i += 1
 
-        # consider from the model (not teacher-forcing)
-        # r = 0
-        # while r < max_recur:
-        #     node_output = output[current_index] - output[left_border]
-        #     node_attn_weight = attn(node_output)
-        #
-        #     top_k_value, top_k_ind = torch.topk(node_attn_weight, 1)
-        #     if i + 1 < len(linearized_target):
-        #         next_token = linearized_target[i + 1]
-        #         if next_token == "]":
+            # consider from the model (not teacher-forcing)
+            # r = 0
+            # while r < max_recur:
+            #     node_output = output[current_index] - output[left_border]
+            #     node_attn_weight = attn(node_output)
+            #
+            #     top_k_value, top_k_ind = torch.topk(node_attn_weight, 1)
+            #     if i + 1 < len(linearized_target):
+            #         next_token = linearized_target[i + 1]
+            #         if next_token == "]":
 
-        #         else:
-        #             break
+            #         else:
+            #             break
 
-        #     # this is the last element. Attend to the beginning
-        #     else:
-        #         left_most_border = stack.pop()
-        #         loss += loss += criterion(attn_weight, torch.tensor([left_most_border], dtype=torch.long, device=device))
-        #
-        #     r += 1
+            #     # this is the last element. Attend to the beginning
+            #     else:
+            #         left_most_border = stack.pop()
+            #         loss += loss += criterion(attn_weight, torch.tensor([left_most_border], dtype=torch.long, device=device))
+            #
+            #     r += 1
 
 
 
@@ -252,26 +255,20 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     model_optimizer.step()
     attn_optimizer.step()
 
-    return loss.item / len(output)
+    print(loss)
+    print(loss.item())
 
-
-
-
-
-
-
-
+    return loss.item() / len(output)
 
 
 def trainIters(n_words, train_text_tensor, train_passages, train_text):
-
     # TODO: learning_rate decay
     learning_rate = 0.05
     n_epoch = 100
     criterion = nn.NLLLoss()
 
     model = RNNModel(n_words).to(device)
-    attn = AttentionModel.to(device)
+    attn = AttentionModel().to(device)
 
     start = time.time()
 
@@ -289,10 +286,6 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text):
             loss = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
 
 
-
-
-
-
 def main():
     # train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
     # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
@@ -308,13 +301,10 @@ def main():
     vocab = prepareData(vocab, dev_text)
     train_text_tensor = [tensorFromSentence(vocab, sent) for sent in train_text]
 
+    trainIters(vocab.n_words, train_text_tensor, train_passages, train_text)
 
-    trainIters(vocab.n_words, train_text_tensor, train_passages)
-
-
-
-    # # peak
-    # peak_passage = train_passages[0]
+    # # peek
+    # peek_passage = train_passages[0]
     # l0 = peak_passage.layer("0")
     # print([i.text for i in l0.all])
 
