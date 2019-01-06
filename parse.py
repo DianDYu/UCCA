@@ -138,7 +138,30 @@ def linearize(sent_passage):
     l1 = sent_passage._layers["1"]
     node0 = l1.heads[0]
     linearized = str(node0).split()
-    return linearized
+    # deal with NERs (given by the UCCA files) as len(ent_type) > 0
+    corrected_linearized = []
+    in_ner = False
+
+    # test for more than two words in a NER
+    # test_linearized = []
+    # for i in linearized:
+    #     test_linearized.append(i)
+    #     if i == "Nick":
+    #         test_linearized.append("Test")
+    # linearized = test_linearized
+
+    for i in linearized:
+        if i[0] != "[" and i[-1] !="]":
+            corrected_linearized.append("[X")
+            corrected_linearized.append(i + "]")
+            in_ner = True
+        else:
+            if i[-1] =="]" and in_ner:
+                corrected_linearized.append("[X")
+                in_ner = False
+            corrected_linearized.append(i)
+
+    return corrected_linearized
 
 
 def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent):
@@ -171,6 +194,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     # for i, token in enumerate(linearized_target):
     while i < len(linearized_target):
         token = linearized_target[i]
+        ori_word = ori_sent[index]
         print(token)
         # new node
         if token[0] == "[" and token[-1] != "*":
@@ -298,6 +322,10 @@ def main():
     # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
     train_file = "sample_data/train"
     dev_file = "sample_data/dev"
+
+    # testing
+    train_file  = "sample_data/train/672003.xml"
+
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
 
     # prepare data
