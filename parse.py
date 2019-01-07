@@ -313,7 +313,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     model_optimizer.step()
     attn_optimizer.step()
 
-    return loss.item() / len(output)
+    return loss.item() / len(output), model, attn
 
 def evaluate(sent_tensor, model, attn, ori_sent):
     max_recur = 5
@@ -382,7 +382,7 @@ def update_token_mapping(index, token_mapping):
 
     return updated_token_mapping
 
-def trainIters(n_words, train_text_tensor, train_passages, train_text):
+def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_text):
     # TODO: learning_rate decay
     learning_rate = 0.05
     n_epoch = 100
@@ -404,7 +404,12 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text):
     for epoch in range(1, n_epoch + 1):
         # TODO: add batch
         for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
-            loss = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
+            loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
+        print("Loss for epoch %d: %.4f" % (epoch, loss))
+    torch.save()
+
+    for dev_tensor, dev_sent in zip(dev_text_tensor, dev_text):
+        evaluate(dev_tensor, model_r, attn_r, dev_sent)
 
 
 def main():
@@ -425,8 +430,9 @@ def main():
     vocab = prepareData(vocab, train_text)
     vocab = prepareData(vocab, dev_text)
     train_text_tensor = [tensorFromSentence(vocab, sent) for sent in train_text]
+    dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in dev_text]
 
-    trainIters(vocab.n_words, train_text_tensor, train_passages, train_text)
+    trainIters(vocab.n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_text)
 
     # # peek
     # peek_passage = train_passages[0]
