@@ -194,7 +194,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     # for i, token in enumerate(linearized_target):
     while i < len(linearized_target):
         token = linearized_target[i]
-        ori_word = ori_sent[index]
+        ori_word = ori_sent[index] if index < len(ori_sent) else "<EOS>"
+
         print(token)
         # new node
         if token[0] == "[" and token[-1] != "*":
@@ -212,7 +213,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             #
             if linearized_target[i + 1] != "]":
                 # attend to itself
-                assert token[:-1] == ori_sent[index], """the terminal word: %s should be the same
+                assert token[:-1] == ori_word, """the terminal word: %s should be the same
                  as ori_sent: %s""" % (token[:-1], ori_sent[index])
                 attn_weight = attn(output[index])
                 loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
