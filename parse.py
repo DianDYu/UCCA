@@ -172,8 +172,11 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     model_optimizer.zero_grad()
     attn_optimizer.zero_grad()
 
-    loss = 0
     max_recur = 5
+    teacher_forcing_ratio = 1
+    max_length = 70
+
+    loss = 0
 
     output, hidden = model(sent_tensor)
 
@@ -194,81 +197,91 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
     index = 0
     stack = []
-
     i = 0
-    # for i, token in enumerate(linearized_target):
-    while i < len(linearized_target):
-        token = linearized_target[i]
-        ori_word = ori_sent[index] if index < len(ori_sent) else "<EOS>"
 
-        # print(token)
-        # new node
-        if token[0] == "[" and token[-1] != "*":
-            stack.append(index)
+    teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
-        # ignore IMPLICIT edges
-        elif token == "IMPLICIT]":
-            stack.pop()
-            i += 1
-            continue
+    if teacher_forcing:
+        # for i, token in enumerate(linearized_target):
+        while i < len(linearized_target):
+            token = linearized_target[i]
+            ori_word = ori_sent[index] if index < len(ori_sent) else "<EOS>"
 
-        # terminal node
-        elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
-            assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
-            #
-            if linearized_target[i + 1] != "]":
-                # attend to itself
-                assert token[:-1] == ori_word, """the terminal word: %s should be the same
-                 as ori_sent: %s""" % (token[:-1], ori_word)
-                attn_weight = attn(output[index])
-                loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
-            index += 1
-            # shouldn't pop for label prediction purposes
-            stack.pop()
+            # print(token)
+            # new node
+            if token[0] == "[" and token[-1] != "*":
+                stack.append(index)
 
-        # remote: ignore for now
-        elif token[0] == "[" and token[-1] == "*":
-            i += 2
-            continue
-        # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] == "*":
-        #     continue
+            # ignore IMPLICIT edges
+            elif token == "IMPLICIT]":
+                stack.pop()
+                i += 1
+                continue
 
-        # close a node
-        elif token == "]":
-            current_index = index - 1
-            left_border = stack.pop()
-            # TODO: check if the same terminal word as that in the ori_sent
-            attn_weight = attn(output[current_index])
-            loss += criterion(attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
-            # TODO: recursively compute new loss
+            # terminal node
+            elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
+                assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
+                #
+                if linearized_target[i + 1] != "]":
+                    # attend to itself
+                    assert token[:-1] == ori_word, """the terminal word: %s should be the same
+                     as ori_sent: %s""" % (token[:-1], ori_word)
+                    attn_weight = attn(output[index])
+                    loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
+                index += 1
+                # shouldn't pop for label prediction purposes
+                stack.pop()
 
-            # teach forcing
-            for r in range(1, max_recur + 1):
-                # print(stack)
-                # print([ori_sent[i] for i in stack])
-                node_output = output[current_index] - output[left_border]
-                node_attn_weight = attn(node_output)
-                top_k_value, top_k_ind = torch.topk(node_attn_weight, 1)
+            # remote: ignore for now
+            elif token[0] == "[" and token[-1] == "*":
+                i += 2
+                continue
+            # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] == "*":
+            #     continue
 
-                if i + r + 1 < len(linearized_target):
-                    if linearized_target[i + r + 1] == "]":
+            # close a node
+            elif token == "]":
+                current_index = index - 1
+                left_border = stack.pop()
+                # TODO: check if the same terminal word as that in the ori_sent
+                attn_weight = attn(output[current_index])
+                loss += criterion(attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                # TODO: recursively compute new loss
+
+                # teach forcing
+                for r in range(1, max_recur + 1):
+                    # print(stack)
+                    # print([ori_sent[i] for i in stack])
+                    node_output = output[current_index] - output[left_border]
+                    node_attn_weight = attn(node_output)
+
+                    if i + r + 1 < len(linearized_target):
+                        if linearized_target[i + r + 1] == "]":
+                            left_border = stack.pop()
+                            left_border_word = ori_sent[left_border]
+                            loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                            i += 1
+                        else:
+                            loss += criterion(node_attn_weight, torch.tensor([current_index], dtype=torch.long, device=device))
+                            break
+                    else:
+                        # print(stack)
                         left_border = stack.pop()
-                        left_border_word = ori_sent[left_border]
                         loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
                         i += 1
-                    else:
-                        loss += criterion(node_attn_weight, torch.tensor([current_index], dtype=torch.long, device=device))
                         break
-                else:
-                    # print(stack)
-                    left_border = stack.pop()
-                    loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
-                    i += 1
-                    break
-        else:
-            assert False, "something unexpected happened"
+            else:
+                assert False, "something unexpected happened"
 
-        i += 1
+            i += 1
+
+    else:
+        for i, terminal_token in enumerate(ori_sent):
+            term_attn_weight = attn(output[i])
+            top_k_value, top_k_ind = torch.topk(term_attn_weight, 1)
+            pass
+
+
 
             # consider from the model (not teacher-forcing)
             # r = 0
@@ -302,6 +315,72 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
     return loss.item() / len(output)
 
+def evaluate(sent_tensor, model, attn, ori_sent):
+    max_recur = 5
+
+    pred_linearized_passage = []
+    token_mapping = []  # map terminal token (index i) to its current index in the pred_linearized_passage
+
+    output, hidden = model(sent_tensor)
+
+    for i, terminal_token in enumerate(ori_sent):
+        output_i = output[i]
+        attn_i = attn(output_i)
+        top_k_value, top_k_ind = torch.topk(attn_i, 1)
+
+        token_mapping.append(len(pred_linearized_passage))
+
+        # attend to itself
+        if top_k_ind == i:
+            pred_linearized_passage.append("[")
+            pred_linearized_passage.append(terminal_token + "]")
+        # out of boundary:
+        elif top_k_ind > i:
+            pred_linearized_passage.append("[")
+            pred_linearized_passage.append(terminal_token + "]")
+        # attend to prev token, create new nodes
+        else:
+            # the insert position should actually be the left most of the token
+            top_k_token = pred_linearized_passage[token_mapping[i]]
+            assert top_k_token == terminal_token, \
+                "token in pred %s should be the same as the token in ori %s" % (top_k_token, terminal_token)
+            pred_linearized_passage.insert(token_mapping[i], "[")
+            pred_linearized_passage.append(terminal_token + "]")
+            token_mapping = update_token_mapping(i, token_mapping)
+
+            # recursively try to see if need to create new node
+            r_left_bound = top_k_ind
+            for r in range(1, max_recur + 1):
+                new_node_output = output[i] - output[r_left_bound]
+                new_node_attn_weight = attn(new_node_output)
+                r_top_k_value, r_top_k_ind = torch.topk(new_node_attn_weight, 1)
+                # predict out of boundary
+                if r_left_bound > i:
+                    break
+                # attend to the new node itself
+                elif r_left_bound <= r_top_k_ind <= i:
+                    break
+                # create new node
+                else:
+                    pred_linearized_passage.insert(token_mapping[r_top_k_ind], "[")
+                    pred_linearized_passage.append("]")
+                    token_mapping = update_token_mapping(r_top_k_ind, token_mapping)
+                    r_left_bound = r_top_k_ind
+
+    return pred_linearized_passage
+
+
+
+def update_token_mapping(index, token_mapping):
+    """
+
+    :param index:
+    :param token_mapping:
+    :return:
+    """
+    updated_token_mapping = [i + 1 if i > index else i for i in token_mapping]
+
+    return updated_token_mapping
 
 def trainIters(n_words, train_text_tensor, train_passages, train_text):
     # TODO: learning_rate decay
