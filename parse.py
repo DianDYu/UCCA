@@ -158,8 +158,12 @@ def linearize(sent_passage):
         else:
             if i[-1] =="]" and in_ner:
                 corrected_linearized.append("[X")
+                corrected_linearized.append(i)
+                corrected_linearized.append("]")
                 in_ner = False
-            corrected_linearized.append(i)
+            else:
+                corrected_linearized.append(i)
+
 
     return corrected_linearized
 
@@ -187,6 +191,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     #     loss += criterion(attn_weight, )
 
     linearized_target = linearize(sent_passage)
+
     index = 0
     stack = []
 
@@ -196,7 +201,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
         token = linearized_target[i]
         ori_word = ori_sent[index] if index < len(ori_sent) else "<EOS>"
 
-        print(token)
+        # print(token)
         # new node
         if token[0] == "[" and token[-1] != "*":
             stack.append(index)
@@ -214,7 +219,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             if linearized_target[i + 1] != "]":
                 # attend to itself
                 assert token[:-1] == ori_word, """the terminal word: %s should be the same
-                 as ori_sent: %s""" % (token[:-1], ori_sent[index])
+                 as ori_sent: %s""" % (token[:-1], ori_word)
                 attn_weight = attn(output[index])
                 loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
             index += 1
@@ -239,13 +244,16 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
             # teach forcing
             for r in range(1, max_recur + 1):
+                print(stack)
+                print([ori_sent[i] for i in stack])
                 node_output = output[current_index] - output[left_border]
                 node_attn_weight = attn(node_output)
                 top_k_value, top_k_ind = torch.topk(node_attn_weight, 1)
 
-                if r + 1 < len(linearized_target):
-                    if linearized_target[r + 1] == "]":
+                if i + r + 1 < len(linearized_target):
+                    if linearized_target[i + r + 1] == "]":
                         left_border = stack.pop()
+                        left_border_word = ori_sent[left_border]
                         loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
                         i += 1
                     else:
@@ -255,6 +263,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
                     left_border = stack.pop()
                     loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
                     i += 1
+        else:
+            assert False, "something unexpected happened"
 
         i += 1
 
@@ -280,15 +290,13 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             #     r += 1
 
 
-
+    word_stack = [ori_sent[i] for i in stack]
+    assert len(stack) == 0, "stack is not empty, left %s" % word_stack
 
     loss.backward()
 
     model_optimizer.step()
     attn_optimizer.step()
-
-    print(loss)
-    print(loss.item())
 
     return loss.item() / len(output)
 
