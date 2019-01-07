@@ -15,8 +15,8 @@ from ucca import diffutil, ioutil, textutil, layer0, layer1
 from ucca.evaluation import LABELED, UNLABELED, EVAL_TYPES, evaluate as evaluate_ucca
 from ucca.normalization import normalize
 
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = "cpu"
 
 class Vocab:
     def __init__(self):
@@ -244,8 +244,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
             # teach forcing
             for r in range(1, max_recur + 1):
-                print(stack)
-                print([ori_sent[i] for i in stack])
+                # print(stack)
+                # print([ori_sent[i] for i in stack])
                 node_output = output[current_index] - output[left_border]
                 node_attn_weight = attn(node_output)
                 top_k_value, top_k_ind = torch.topk(node_attn_weight, 1)
@@ -260,9 +260,11 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
                         loss += criterion(node_attn_weight, torch.tensor([current_index], dtype=torch.long, device=device))
                         break
                 else:
+                    # print(stack)
                     left_border = stack.pop()
                     loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
                     i += 1
+                    break
         else:
             assert False, "something unexpected happened"
 
