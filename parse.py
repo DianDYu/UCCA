@@ -142,19 +142,18 @@ def linearize(sent_passage):
     corrected_linearized = []
     in_ner = False
 
-    # test for more than two words in a NER
-    # test_linearized = []
-    # for i in linearized:
-    #     test_linearized.append(i)
-    #     if i == "Nick":
-    #         test_linearized.append("Test")
-    # linearized = test_linearized
-
-    for i in linearized:
+    ind = 0
+    while ind < len(linearized):
+        i = linearized[ind]
         if i[0] != "[" and i[-1] !="]":
             corrected_linearized.append("[X")
             corrected_linearized.append(i + "]")
             in_ner = True
+        # deal with situations when there is a punctuation in the NER
+        elif i == "[U" and in_ner:
+            corrected_linearized.append("[X")
+            corrected_linearized.append(linearized[ind + 1])
+            ind += 1
         else:
             if i[-1] =="]" and in_ner:
                 corrected_linearized.append("[X")
@@ -164,6 +163,7 @@ def linearize(sent_passage):
             else:
                 corrected_linearized.append(i)
 
+        ind += 1
 
     return corrected_linearized
 
@@ -201,7 +201,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
     teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
-    print(linearized_target)
+    # print(linearized_target)
     # print(ori_sent)
 
     if teacher_forcing:
@@ -228,8 +228,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
                 #
                 if linearized_target[i + 1] != "]":
                     # attend to itself
-                    assert token[:-1] == ori_word, """the terminal word: %s should be the same
-                     as ori_sent: %s""" % (token[:-1], ori_word)
+                    assert token[:-1] == ori_word, """the terminal word: %s should
+                     be the same as ori_sent: %s""" % (token[:-1], ori_word)
                     attn_weight = attn(output[index])
                     loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
                 index += 1
@@ -423,7 +423,9 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     start = time.time()
 
-    training = True
+    training = False
+    # training = True
+    
     checkpoint_path = "cp_epoch_100.pt"
 
     plot_losses = []
@@ -481,7 +483,7 @@ def main():
     dev_file = "sample_data/dev"
 
     # testing
-    # train_file  = "sample_data/train/000000.xml"
+    # train_file  = "sample_data/train/672004.xml"
     dev_file = "sample_data/train/000000.xml"
 
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
