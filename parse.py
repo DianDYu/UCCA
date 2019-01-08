@@ -201,6 +201,9 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
     teacher_forcing = True if random.random() < teacher_forcing_ratio else False
 
+    print(linearized_target)
+    # print(ori_sent)
+
     if teacher_forcing:
         # for i, token in enumerate(linearized_target):
         while i < len(linearized_target):
@@ -219,7 +222,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
                 continue
 
             # terminal node
-            elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
+            # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
+            elif len(token) > 1 and token[-1] == "]":
                 assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
                 #
                 if linearized_target[i + 1] != "]":
@@ -265,22 +269,24 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
                             loss += criterion(node_attn_weight, torch.tensor([current_index], dtype=torch.long, device=device))
                             break
                     else:
-                        # print(stack)
-                        left_border = stack.pop()
-                        loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
-                        i += 1
                         break
+                        # print(stack)
+                        # left_border = stack.pop()
+                        # loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                        # i += 1
+                        # break
             else:
-                assert False, "something unexpected happened"
+                assert False, "unexpected token: %s" % token
 
             i += 1
+
+        assert len(stack) == 0, "stack is not empty after training"
 
     else:
         for i, terminal_token in enumerate(ori_sent):
             term_attn_weight = attn(output[i])
             top_k_value, top_k_ind = torch.topk(term_attn_weight, 1)
             pass
-
 
 
             # consider from the model (not teacher-forcing)
@@ -315,38 +321,57 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
     return loss.item() / len(output), model, attn
 
+
 def evaluate(sent_tensor, model, attn, ori_sent):
     max_recur = 5
 
     pred_linearized_passage = []
-    token_mapping = []  # map terminal token (index i) to its current index in the pred_linearized_passage
+    # map terminal token (index i) to its current index in the pred_linearized_passage
+    token_mapping = []
 
     output, hidden = model(sent_tensor)
 
     for i, terminal_token in enumerate(ori_sent):
+        # print(terminal_token)
         output_i = output[i]
         attn_i = attn(output_i)
         top_k_value, top_k_ind = torch.topk(attn_i, 1)
 
         token_mapping.append(len(pred_linearized_passage))
 
-        # attend to itself
-        if top_k_ind == i:
-            pred_linearized_passage.append("[")
-            pred_linearized_passage.append(terminal_token + "]")
-        # out of boundary:
-        elif top_k_ind > i:
-            pred_linearized_passage.append("[")
-            pred_linearized_passage.append(terminal_token + "]")
-        # attend to prev token, create new nodes
-        else:
+        # # attend to itself
+        # if top_k_ind == i:
+        #     pred_linearized_passage.append("[")
+        #     pred_linearized_passage.append(terminal_token + "]")
+        #     token_mapping = update_token_mapping(i, token_mapping)
+        # # out of boundary:
+        # elif top_k_ind > i:
+        #     pred_linearized_passage.append("[")
+        #     pred_linearized_passage.append(terminal_token + "]")
+        #     token_mapping = update_token_mapping(i, token_mapping)
+        # # attend to prev token, create new nodes
+        # else:
+
+        pred_linearized_passage.append("[")
+        pred_linearized_passage.append(terminal_token + "]")
+        token_mapping = update_token_mapping(i, token_mapping)
+
+        # print("WARNING")
+        # print(top_k_ind)
+
+        if top_k_ind.data[0] < i:
             # the insert position should actually be the left most of the token
-            top_k_token = pred_linearized_passage[token_mapping[i]]
-            assert top_k_token == terminal_token, \
-                "token in pred %s should be the same as the token in ori %s" % (top_k_token, terminal_token)
-            pred_linearized_passage.insert(token_mapping[i], "[")
-            pred_linearized_passage.append(terminal_token + "]")
-            token_mapping = update_token_mapping(i, token_mapping)
+            # print()
+            # print(i)
+            # print(top_k_ind)
+            # print(token_mapping)
+            # print(pred_linearized_passage)
+            top_k_token = pred_linearized_passage[token_mapping[top_k_ind]]
+            assert top_k_token[:-1] == ori_sent[top_k_ind], \
+                "token in pred: %s should be the same as the token in ori: %s" % (top_k_token, ori_sent[top_k_ind])
+            pred_linearized_passage.insert(top_k_ind, "[")
+            pred_linearized_passage.append("]")
+            token_mapping = update_token_mapping(top_k_ind, token_mapping)
 
             # recursively try to see if need to create new node
             r_left_bound = top_k_ind
@@ -355,20 +380,24 @@ def evaluate(sent_tensor, model, attn, ori_sent):
                 new_node_attn_weight = attn(new_node_output)
                 r_top_k_value, r_top_k_ind = torch.topk(new_node_attn_weight, 1)
                 # predict out of boundary
-                if r_left_bound > i:
+                if r_top_k_ind > i:
                     break
                 # attend to the new node itself
                 elif r_left_bound <= r_top_k_ind <= i:
                     break
                 # create new node
                 else:
+                    # print("in r")
+                    # print(r)
+                    # print(r_top_k_ind)
+                    # print(token_mapping)
+                    # print(pred_linearized_passage)
                     pred_linearized_passage.insert(token_mapping[r_top_k_ind], "[")
                     pred_linearized_passage.append("]")
                     token_mapping = update_token_mapping(r_top_k_ind, token_mapping)
                     r_left_bound = r_top_k_ind
-
+    print(pred_linearized_passage)
     return pred_linearized_passage
-
 
 
 def update_token_mapping(index, token_mapping):
@@ -378,9 +407,10 @@ def update_token_mapping(index, token_mapping):
     :param token_mapping:
     :return:
     """
-    updated_token_mapping = [i + 1 if i > index else i for i in token_mapping]
+    updated_token_mapping = [token_mapping[i] + 1 if i >= index else token_mapping[i] for i in range(len(token_mapping))]
 
     return updated_token_mapping
+
 
 def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_text):
     # TODO: learning_rate decay
@@ -393,6 +423,9 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     start = time.time()
 
+    training = True
+    checkpoint_path = "cp_epoch_100.pt"
+
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
@@ -400,16 +433,45 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
     model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
 
-    # TODO: need to shuffle the order of sentences in each iteration
-    for epoch in range(1, n_epoch + 1):
-        # TODO: add batch
-        for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
-            loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
-        print("Loss for epoch %d: %.4f" % (epoch, loss))
-    torch.save()
+    if training:
+        # TODO: need to shuffle the order of sentences in each iteration
+        for epoch in range(1, n_epoch + 1):
+            # TODO: add batch
+            for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
+                loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
+            print("Loss for epoch %d: %.4f" % (epoch, loss))
 
-    for dev_tensor, dev_sent in zip(dev_text_tensor, dev_text):
-        evaluate(dev_tensor, model_r, attn_r, dev_sent)
+        checkpoint = {
+            'model': model_r.state_dict(),
+            'attn': attn_r.state_dict(),
+            'vocab_size': n_words,
+        }
+        torch.save(checkpoint, "cp_epoch_%d.pt" % epoch)
+
+    else:
+        model_r, attn_r = load_test_model(checkpoint_path)
+        for dev_tensor, dev_sent in zip(dev_text_tensor, dev_text):
+            evaluate(dev_tensor, model_r, attn_r, dev_sent)
+
+
+def load_test_model(checkpoint_path):
+    """
+
+    :param checkpoint_path:
+    :return: model, attn
+    """
+    checkpoint = torch.load(checkpoint_path)
+    vocab_size = checkpoint['vocab_size']
+    print("Loading model parameters")
+    model = RNNModel(vocab_size)
+    attn = AttentionModel()
+    model.load_state_dict(checkpoint['model'])
+    attn.load_state_dict(checkpoint['attn'])
+    model.to(device)
+    attn.to(device)
+    model.eval()
+    attn.eval()
+    return model, attn
 
 
 def main():
@@ -419,7 +481,8 @@ def main():
     dev_file = "sample_data/dev"
 
     # testing
-    train_file  = "sample_data/train/672003.xml"
+    # train_file  = "sample_data/train/000000.xml"
+    dev_file = "sample_data/train/000000.xml"
 
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
 
