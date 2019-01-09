@@ -3,6 +3,7 @@ import sys
 import random
 import time
 from tqdm import tqdm
+import pickle
 
 import torch
 import torch.nn as nn
@@ -132,12 +133,95 @@ def tensorFromSentence(vocab, sentence):
     indexes = indexesFromSentence(vocab, sentence)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
+def clean_epllipsis(linearized):
+    """
+    clean epllipsis in the linearized passage
+
+    "deal with discontinuity in the linearized passage" \
+        "if '[ ... ]', it means it is a symbol in the original sent. leave it there. ex. 106005" \
+        "if only one '...', then ignore (probably due to remote edge referring to a node after the current node). ex. 114005" \
+        "if there are two '... ex. 105005. so ... that ...', swap"
+
+    :param linearized: a list of terminals with boundaries "[", "]"
+    :return: a list of cleaned linearized passage
+    """
+
+    non_content_ellipsis = []
+    swap_linearized_passage = []
+    second_start_0 = 0
+    second_start = 0
+
+    for i in range(len(linearized)):
+        temp = linearized[i]
+        temp1 = linearized[i+1]
+        b1 = linearized[i][0] == "["
+        b2 = (i + 1) < len(linearized)
+        b3 = linearized[i + 1][0] == "["
+        b4 = linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] == "["
+        b5 = linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] != "["
+        if len(non_content_ellipsis) < 2:
+            if linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] != "[":
+                second_start_0 = i
+            if linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] == "[":
+                second_start = i
+
+        # if linearized[i] == "..." and linearized[i - 1] == "[" and linearized[i + 1] == "]":
+        #     clean_linearized.append(linearized[i])
+        if linearized[i] == "..." and linearized[i - 1] != "[" and linearized[i + 1] != "]":
+            non_content_ellipsis.append(i)
+
+
+    assert len(non_content_ellipsis) < 3, "number of non content ellipsis should be 0, 1, or 2"
+    if len(non_content_ellipsis) == 1:
+        return linearized.remove("...")
+    elif len(non_content_ellipsis) == 2:
+        first = non_content_ellipsis[0]
+        second = non_content_ellipsis[1]
+        j = 0
+
+        """
+        the start index of the real node (may contain multiple terminals)
+        two situations:
+            0.  [H, [A, Jolie], [F, was], ..., [P, disappointed], [A, [R, with], [E, the], [C, film], ], ],
+                [L, so, ..., that], [H, [A, she], [F, did], [D, not], [P, audition], [D, again],
+                [D, [R, for], [E, a], [C, year], [U, .], ], ]]
+            1.  [H [A Jolie] [F has] [P [F had] ... [C relationship] ] [D [E a] [C difficult] ] ...
+                   [A [R with] [E her] [C father] [U .] ] ]
+        """
+
+        while j < len(linearized):
+            if j == first:
+                if linearized[second - 1][0] != "[" and linearized[second - 1][-1] != "]":
+                    swap_linearized_passage.append(linearized[second_start_0:second])
+                    swap_linearized_passage.append("]")
+                else:
+                    swap_linearized_passage.append(linearized[second_start:second])
+            elif j == second:
+                if linearized[second - 1][0] != "[" and linearized[second - 1][-1] != "]":
+                    for _ in range(second - second_start_0 - 1):  # - 1 to keep the label
+                        swap_linearized_passage.pop()
+                else:
+                    for _ in range(second - second_start):
+                        swap_linearized_passage.pop()
+            else:
+                swap_linearized_passage.append(linearized[j])
+            j += 1
+        return swap_linearized_passage
+
+    else:
+        return linearized
+
 
 def linearize(sent_passage):
     # TODO: this may not be the perfect way to get the boundary
     l1 = sent_passage._layers["1"]
     node0 = l1.heads[0]
     linearized = str(node0).split()
+
+    print(linearized)
+    linearized = clean_epllipsis(linearized)
+    print(linearized)
+
     # deal with NERs (given by the UCCA files) as len(ent_type) > 0
     corrected_linearized = []
     in_ner = False
@@ -164,6 +248,9 @@ def linearize(sent_passage):
                 corrected_linearized.append(i)
 
         ind += 1
+
+    print(linearized)
+    print(corrected_linearized)
 
     return corrected_linearized
 
@@ -193,6 +280,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     #     # TODO: try to see if we can mask losses for predictions outside of the current window
     #     loss += criterion(attn_weight, )
 
+    print(ori_sent)
     linearized_target = linearize(sent_passage)
 
     index = 0
@@ -212,7 +300,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
             # print(token)
             # new node
-            if token[0] == "[" and token[-1] != "*":
+            if token[0] == "[" and token[-1] != "*" and token[-1] != "]": # token[-1] != "]" is for the
+                # condition when it is actually a terminal "["
                 stack.append(index)
 
             # ignore IMPLICIT edges
@@ -238,8 +327,17 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
 
             # remote: ignore for now
             elif token[0] == "[" and token[-1] == "*":
-                i += 2
+                # the remote edge refer to a terminal node; or a node that is not an NER (ex.
+                # '[A*', '[R', 'with]', '[E', 'her]', '[C', 'father]', ']')
+                if linearized_target[i + 1][0] != "[":
+                    i += 2
+                else:
+                    # the remote edge may refer to a node with arbitrary length
+                    while linearized_target[i] != "]":
+                        i += 1
+                    i += 1
                 continue
+
             # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] == "*":
             #     continue
 
@@ -423,11 +521,12 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     start = time.time()
 
-    training = False
-    # training = True
-    
+    # training = False
+    training = True
+
     checkpoint_path = "cp_epoch_100.pt"
 
+    total_loss = 0
     plot_losses = []
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
@@ -435,13 +534,27 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
     model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
 
+    # ignore_for_now = [104004, 104005, 105000, 105005, 106005, 107005, 114005]
+    ignore_for_now = []
+
     if training:
         # TODO: need to shuffle the order of sentences in each iteration
         for epoch in range(1, n_epoch + 1):
             # TODO: add batch
+            total_loss = 0
+            num = 0
             for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
+                sent_id = sent_passage.ID
+                print(sent_id)
+                if int(sent_id) in ignore_for_now:
+                    continue
+                if len(ori_sent) > 70:
+                    print("sent %s is too long" %sent_id)
+                    continue
                 loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
-            print("Loss for epoch %d: %.4f" % (epoch, loss))
+                total_loss += loss
+                num += 1
+            print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
 
         checkpoint = {
             'model': model_r.state_dict(),
@@ -476,17 +589,50 @@ def load_test_model(checkpoint_path):
     return model, attn
 
 
+def read_save_input(train_file, dev_file):
+    """
+    save passages to a file so we don't need to read xml each time for training
+    :param train_file:
+    :param dev_file:
+    :return:
+    """
+    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    input_write_to_file("full_train.dat", train_passages)
+    input_write_to_file("sample_dev.dat", dev_passages)
+
+
+def input_write_to_file(filename, passages):
+    with open(filename, "wb") as f:
+        pickle.dump(passages, f)
+
+
+def load_input_data(filename):
+    with open(filename, "rb") as f:
+        return pickle.load(f)
+
+
 def main():
-    # train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
     # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
-    train_file = "sample_data/train"
+    # train_file = "sample_data/train"
     dev_file = "sample_data/dev"
 
     # testing
-    # train_file  = "sample_data/train/672004.xml"
+    train_file  = "sample_data/train/672004.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105005.xml"
     dev_file = "sample_data/train/000000.xml"
 
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+
+
+    """non-testing"""
+    # read_save_input(train_file, dev_file)
+    # sys.exit()
+
+    # train_passages = load_input_data("full_train.dat")
+    # dev_passages =load_input_data("sample_dev.dat")
+
+
 
     # prepare data
     vocab = Vocab()
