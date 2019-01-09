@@ -498,7 +498,10 @@ def evaluate(sent_tensor, model, attn, ori_sent, dev_passage):
             # recursively try to see if need to create new node
             r_left_bound = top_k_ind
             for r in range(1, max_recur + 1):
-                new_node_output = output[i] - output[r_left_bound]
+                # ex. r_left_bound = tensor([[2]]) if we do output[r_left_bound] then the size will be
+                # (1,1,1,500). But output[2] will give you size (1,500), which is the input to the attn
+                # model
+                new_node_output = output_i - output[r_left_bound.data[0][0]]
                 new_node_attn_weight = attn(new_node_output)
                 r_top_k_value, r_top_k_ind = torch.topk(new_node_attn_weight, 1)
                 # predict out of boundary
@@ -619,7 +622,11 @@ def load_test_model(checkpoint_path):
     :param checkpoint_path:
     :return: model, attn
     """
-    checkpoint = torch.load(checkpoint_path)
+    if torch.cuda.is_available():
+        checkpoint = torch.load(checkpoint_path)
+    else:
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+
     vocab_size = checkpoint['vocab_size']
     print("Loading model parameters")
     model = RNNModel(vocab_size)
@@ -670,8 +677,8 @@ def main():
 
 
     # sanity check
-    train_file = "/home/dianyu/Desktop/P/UCCA/check_training/"
-    dev_file = "/home/dianyu/Desktop/P/UCCA/check_evaluate/"
+    train_file = "check_training/"
+    dev_file = "check_evaluate/"
 
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
 
