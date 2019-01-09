@@ -523,11 +523,18 @@ def evaluate(sent_tensor, model, attn, ori_sent, dev_passage):
                     r_left_bound = r_top_k_ind
     print("pred: ")
     print(" ".join(i for i in pred_linearized_passage))
+    print("modified_target: ")
+    print(modified_target(dev_passage))
     print("target: ")
     print(dev_passage)
     print()
     return pred_linearized_passage
 
+def modified_target(dev_passage):
+    l1 = dev_passage._layers["1"]
+    node0 = l1.heads[0]
+    linearized = str(node0).split()
+    return " ".join(i[0] if i[0] == "[" and i[-1] != "]" else i for i in linearized)
 
 def update_token_mapping(index, token_mapping):
     """
