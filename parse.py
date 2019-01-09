@@ -133,9 +133,9 @@ def tensorFromSentence(vocab, sentence):
     indexes = indexesFromSentence(vocab, sentence)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
 
-def clean_epllipsis(linearized):
+def clean_ellipsis(linearized):
     """
-    clean epllipsis in the linearized passage
+    clean ellipsis in the linearized passage
 
     "deal with discontinuity in the linearized passage" \
         "if '[ ... ]', it means it is a symbol in the original sent. leave it there. ex. 106005" \
@@ -150,30 +150,32 @@ def clean_epllipsis(linearized):
     swap_linearized_passage = []
     second_start_0 = 0
     second_start = 0
+    second_start_n = 0
+    index_stack = []
 
     for i in range(len(linearized)):
-        temp = linearized[i]
-        temp1 = linearized[i+1]
-        b1 = linearized[i][0] == "["
-        b2 = (i + 1) < len(linearized)
-        b3 = linearized[i + 1][0] == "["
-        b4 = linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] == "["
-        b5 = linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] != "["
         if len(non_content_ellipsis) < 2:
             if linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] != "[":
                 second_start_0 = i
-            if linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] == "[":
-                second_start = i
+            # if linearized[i][0] == "[" and (i + 1) < len(linearized) and linearized[i + 1][0] == "[":
+            #     second_start = i
+            if linearized[i][0] == "[" and linearized[i][-1] != "]":
+                index_stack.append(i)
+            elif linearized[i][-1] == "]" and linearized[i][0] != "[":
+                second_start_n = index_stack.pop()
 
         # if linearized[i] == "..." and linearized[i - 1] == "[" and linearized[i + 1] == "]":
         #     clean_linearized.append(linearized[i])
         if linearized[i] == "..." and linearized[i - 1] != "[" and linearized[i + 1] != "]":
             non_content_ellipsis.append(i)
 
+    second_start = second_start_n
 
     assert len(non_content_ellipsis) < 3, "number of non content ellipsis should be 0, 1, or 2"
+
     if len(non_content_ellipsis) == 1:
-        return linearized.remove("...")
+        linearized.remove("...")
+        return linearized
     elif len(non_content_ellipsis) == 2:
         first = non_content_ellipsis[0]
         second = non_content_ellipsis[1]
@@ -192,10 +194,13 @@ def clean_epllipsis(linearized):
         while j < len(linearized):
             if j == first:
                 if linearized[second - 1][0] != "[" and linearized[second - 1][-1] != "]":
-                    swap_linearized_passage.append(linearized[second_start_0:second])
-                    swap_linearized_passage.append("]")
+                    assert len(linearized[second_start_0:second]) == 2, "special case for ellipsis"
+                    for t in linearized[second_start_0:second]:
+                        swap_linearized_passage.append(t)
+                    swap_linearized_passage[-1] += "]"
                 else:
-                    swap_linearized_passage.append(linearized[second_start:second])
+                    for t in linearized[second_start:second]:
+                        swap_linearized_passage.append(t)
             elif j == second:
                 if linearized[second - 1][0] != "[" and linearized[second - 1][-1] != "]":
                     for _ in range(second - second_start_0 - 1):  # - 1 to keep the label
@@ -218,9 +223,9 @@ def linearize(sent_passage):
     node0 = l1.heads[0]
     linearized = str(node0).split()
 
-    print(linearized)
-    linearized = clean_epllipsis(linearized)
-    print(linearized)
+    # print(linearized)
+    linearized = clean_ellipsis(linearized)
+    # print(linearized)
 
     # deal with NERs (given by the UCCA files) as len(ent_type) > 0
     corrected_linearized = []
@@ -249,8 +254,8 @@ def linearize(sent_passage):
 
         ind += 1
 
-    print(linearized)
-    print(corrected_linearized)
+    # print(linearized)
+    # print(corrected_linearized)
 
     return corrected_linearized
 
@@ -534,7 +539,7 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
     model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
 
-    # ignore_for_now = [104004, 104005, 105000, 105005, 106005, 107005, 114005]
+    # ignore_for_now = [104004, 104005, 105000, 106005, 107005, 114005]
     ignore_for_now = []
 
     if training:
@@ -620,6 +625,7 @@ def main():
     # testing
     train_file  = "sample_data/train/672004.xml"
     train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105005.xml"
+    train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki"
     dev_file = "sample_data/train/000000.xml"
 
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
