@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 from torch import optim
 import torch.nn.functional as F
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 torch.manual_seed(1)
 
@@ -223,7 +224,7 @@ def linearize(sent_passage):
     node0 = l1.heads[0]
     linearized = str(node0).split()
 
-    print(linearized)
+    # print(linearized)
 
     linearized = clean_ellipsis(linearized)
     # print(linearized)
@@ -255,12 +256,13 @@ def linearize(sent_passage):
 
         ind += 1
 
-    print(corrected_linearized)
+    # print(corrected_linearized)
 
     return corrected_linearized
 
 
-def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent):
+def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion,
+          ori_sent):
     model_optimizer.zero_grad()
     attn_optimizer.zero_grad()
 
@@ -285,7 +287,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     #     # TODO: try to see if we can mask losses for predictions outside of the current window
     #     loss += criterion(attn_weight, )
 
-    print(ori_sent)
+    # print(ori_sent)
     linearized_target = linearize(sent_passage)
 
     index = 0
@@ -432,14 +434,17 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     assert len(stack) == 0, "stack is not empty, left %s" % word_stack
 
     loss.backward()
-
+    #
     model_optimizer.step()
     attn_optimizer.step()
 
     return loss.item() / len(output), model, attn
 
 
-def evaluate(sent_tensor, model, attn, ori_sent):
+def evaluate(sent_tensor, model, attn, ori_sent, dev_passage):
+    print("original sent")
+    print(ori_sent)
+
     max_recur = 5
 
     pred_linearized_passage = []
@@ -486,7 +491,7 @@ def evaluate(sent_tensor, model, attn, ori_sent):
             top_k_token = pred_linearized_passage[token_mapping[top_k_ind]]
             assert top_k_token[:-1] == ori_sent[top_k_ind], \
                 "token in pred: %s should be the same as the token in ori: %s" % (top_k_token, ori_sent[top_k_ind])
-            pred_linearized_passage.insert(top_k_ind, "[")
+            pred_linearized_passage.insert(token_mapping[top_k_ind], "[")
             pred_linearized_passage.append("]")
             token_mapping = update_token_mapping(top_k_ind, token_mapping)
 
@@ -513,7 +518,11 @@ def evaluate(sent_tensor, model, attn, ori_sent):
                     pred_linearized_passage.append("]")
                     token_mapping = update_token_mapping(r_top_k_ind, token_mapping)
                     r_left_bound = r_top_k_ind
-    print(pred_linearized_passage)
+    print("pred: ")
+    print(" ".join(i for i in pred_linearized_passage))
+    print("target: ")
+    print(dev_passage)
+    print()
     return pred_linearized_passage
 
 
@@ -529,10 +538,13 @@ def update_token_mapping(index, token_mapping):
     return updated_token_mapping
 
 
-def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_text):
+def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_passages, dev_text):
     # TODO: learning_rate decay
+    momentum = 0.9
     learning_rate = 0.05
-    n_epoch = 100
+    lr_decay = 0.5
+    lr_start_decay = 30
+    n_epoch = 300
     criterion = nn.NLLLoss()
 
     model = RNNModel(n_words).to(device)
@@ -540,10 +552,10 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     start = time.time()
 
-    # training = False
-    training = True
+    training = False
+    # training = True
 
-    checkpoint_path = "cp_epoch_100.pt"
+    checkpoint_path = "cp_epoch_300.pt"
 
     total_loss = 0
     plot_losses = []
@@ -552,9 +564,16 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
     attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
+    # model_optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
+    # attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate, momentum=momentum)
+    model_scheduler = ReduceLROnPlateau(model_optimizer, factor=lr_decay, patience=lr_start_decay, verbose=True)
+    attn_scheduler = ReduceLROnPlateau(attn_optimizer, factor=lr_decay, patience=lr_start_decay, verbose=True)
 
     # ignore_for_now = [104004, 104005, 105000, 106005, 107005, 114005]
-    ignore_for_now = [116012]
+    order_issue = [116012]
+    one_ellipsis_issue = [123000, 123003, 124013, 129011]
+    other_issue = [126001]
+    ignore_for_now = order_issue + one_ellipsis_issue + other_issue
 
     if training:
         # TODO: need to shuffle the order of sentences in each iteration
@@ -564,15 +583,21 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
             num = 0
             for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
                 sent_id = sent_passage.ID
-                print(sent_id)
-                if int(sent_id) in ignore_for_now:
-                    continue
+                # print(sent_id)
+                # if int(sent_id) in ignore_for_now:
+                #     continue
                 if len(ori_sent) > 70:
                     print("sent %s is too long" %sent_id)
                     continue
-                loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion, ori_sent)
+                # if int(sent_id) < 129011:
+                #     continue
+                loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn,
+                                              attn_optimizer, criterion, ori_sent)
                 total_loss += loss
                 num += 1
+
+            # model_scheduler.step(total_loss)
+            # attn_scheduler.step(total_loss)
             print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
 
         checkpoint = {
@@ -584,8 +609,8 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     else:
         model_r, attn_r = load_test_model(checkpoint_path)
-        for dev_tensor, dev_sent in zip(dev_text_tensor, dev_text):
-            evaluate(dev_tensor, model_r, attn_r, dev_sent)
+        for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
+            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
 
 
 def load_test_model(checkpoint_path):
@@ -639,9 +664,14 @@ def main():
     # testing
     train_file  = "sample_data/train/672004.xml"
     train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105005.xml"
-    train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
+    # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
+
+
+    # sanity check
+    train_file = "/home/dianyu/Desktop/P/UCCA/check_training/"
+    dev_file = "/home/dianyu/Desktop/P/UCCA/check_evaluate/"
 
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
 
@@ -664,7 +694,7 @@ def main():
     train_text_tensor = [tensorFromSentence(vocab, sent) for sent in train_text]
     dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in dev_text]
 
-    trainIters(vocab.n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_text)
+    trainIters(vocab.n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_passages, dev_text)
 
     # # peek
     # peek_passage = train_passages[0]
