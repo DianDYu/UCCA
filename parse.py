@@ -223,7 +223,8 @@ def linearize(sent_passage):
     node0 = l1.heads[0]
     linearized = str(node0).split()
 
-    # print(linearized)
+    print(linearized)
+
     linearized = clean_ellipsis(linearized)
     # print(linearized)
 
@@ -254,8 +255,7 @@ def linearize(sent_passage):
 
         ind += 1
 
-    # print(linearized)
-    # print(corrected_linearized)
+    print(corrected_linearized)
 
     return corrected_linearized
 
@@ -334,13 +334,27 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             elif token[0] == "[" and token[-1] == "*":
                 # the remote edge refer to a terminal node; or a node that is not an NER (ex.
                 # '[A*', '[R', 'with]', '[E', 'her]', '[C', 'father]', ']')
+
+                """[A*', '[A', '[E', 'Her]', '[C', 'parents]', ']', '[F', 'were]', 
+                '[P', 'criticized]', '[A', '[R', 'by]', '[E', 'the]', '[C', 'community]', ']',
+                 '[A', '[R', 'for]', '[E', 'their]', '[E', 'progressive]', '[C', 'views]', ']', ']'"""
+
                 if linearized_target[i + 1][0] != "[":
                     i += 2
                 else:
+                    remote_stack = [i]
                     # the remote edge may refer to a node with arbitrary length
-                    while linearized_target[i] != "]":
+                    while True:
                         i += 1
-                    i += 1
+                        # consider cases like "[]" where the first one is one terminal in the passage
+                        if linearized_target[i][0] == "[" and linearized_target[i][-1] != "]":
+                            remote_stack.append(i)
+                        elif linearized_target[i][-1] == "]" and linearized_target[i][0] != "[":
+                            remote_stack.pop()
+                        if len(remote_stack) == 0:
+                            i += 1
+                            break
+
                 continue
 
             # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] == "*":
@@ -540,7 +554,7 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
     attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
 
     # ignore_for_now = [104004, 104005, 105000, 106005, 107005, 114005]
-    ignore_for_now = []
+    ignore_for_now = [116012]
 
     if training:
         # TODO: need to shuffle the order of sentences in each iteration
@@ -625,7 +639,8 @@ def main():
     # testing
     train_file  = "sample_data/train/672004.xml"
     train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105005.xml"
-    train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki"
+    train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
+    # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
 
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
