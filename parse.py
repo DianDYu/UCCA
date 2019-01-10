@@ -218,6 +218,54 @@ def clean_ellipsis(linearized):
         return linearized
 
 
+def new_clean_ellipsis(linearized, ori_sent):
+    """
+    instead of counting the number of "..." and do swap, this function try to align terminal tokens
+    to solve discontinuities issues
+    :param linearized: linearized passage (list of elements)
+    :param ori_sent: original sentence for token alignment
+    :return: linearized passage without ellipsis generated from discontinuities
+    """
+
+    # including [ ...] where "..." is not in linearized
+    if "..." not in linearized:
+        return linearized
+
+    i = 0
+    index = 0
+    stack = []
+    cleaned_linearized = []
+
+    while i < len(linearized):
+        elem = linearized[i]
+
+        if elem[0] == "[" and elem[-1] == "*":
+            remote_stack = [i]
+            # the remote edge may refer to a node with arbitrary length
+            while True:
+                i += 1
+                # consider cases like "[]" where the first one is one terminal in the passage
+                if linearized[i][0] == "[" and linearized[i][-1] != "]":
+                    remote_stack.append(i)
+                elif linearized[i][-1] == "]" and linearized[i][0] != "[":
+                    remote_stack.pop()
+                if len(remote_stack) == 0:
+                    break
+
+        if (elem[0] != "[" or elem == "[]") and elem != "IMPLICIT]":
+            index += 1
+
+        if elem == "...":
+            next_token_word = ori_sent[index]
+            j = i + 1
+            while True:
+                if linearized[j]
+
+
+
+        i += 1
+
+
 def linearize(sent_passage):
     # TODO: this may not be the perfect way to get the boundary
     l1 = sent_passage._layers["1"]
@@ -562,8 +610,8 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     start = time.time()
 
-    training = False
-    # training = True
+    # training = False
+    training = True
 
     checkpoint_path = "cp_epoch_300.pt"
 
@@ -581,9 +629,9 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     # ignore_for_now = [104004, 104005, 105000, 106005, 107005, 114005]
     order_issue = [116012]
-    one_ellipsis_issue = [123000, 123003, 124013, 129011]
-    other_issue = [126001]
-    ignore_for_now = order_issue + one_ellipsis_issue + other_issue
+    one_ellipsis_issue = [123000, 123003, 124013, 129011, 130005]
+    three_ellipsis_issue = [126001]
+    ignore_for_now = order_issue + one_ellipsis_issue + three_ellipsis_issue
 
     if training:
         # TODO: need to shuffle the order of sentences in each iteration
@@ -593,14 +641,15 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
             num = 0
             for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
                 sent_id = sent_passage.ID
-                # print(sent_id)
-                # if int(sent_id) in ignore_for_now:
-                #     continue
+                if int(sent_id) in ignore_for_now:
+                    continue
                 if len(ori_sent) > 70:
                     print("sent %s is too long" %sent_id)
                     continue
-                # if int(sent_id) < 129011:
-                #     continue
+                if int(sent_id) < 130005:
+                    continue
+                print(sent_id)
+
                 loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn,
                                               attn_optimizer, criterion, ori_sent)
                 total_loss += loss
@@ -684,18 +733,18 @@ def main():
 
 
     # sanity check
-    train_file = "check_training/"
-    dev_file = "check_evaluate/"
+    # train_file = "check_training/"
+    # dev_file = "check_evaluate/"
 
-    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    # train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
 
 
     """non-testing"""
     # read_save_input(train_file, dev_file)
     # sys.exit()
 
-    # train_passages = load_input_data("full_train.dat")
-    # dev_passages =load_input_data("sample_dev.dat")
+    train_passages = load_input_data("full_train.dat")
+    dev_passages =load_input_data("sample_dev.dat")
 
 
 
