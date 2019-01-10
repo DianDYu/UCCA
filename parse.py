@@ -240,30 +240,67 @@ def new_clean_ellipsis(linearized, ori_sent):
         elem = linearized[i]
 
         if elem[0] == "[" and elem[-1] == "*":
-            remote_stack = [i]
-            # the remote edge may refer to a node with arbitrary length
-            while True:
-                i += 1
-                # consider cases like "[]" where the first one is one terminal in the passage
-                if linearized[i][0] == "[" and linearized[i][-1] != "]":
-                    remote_stack.append(i)
-                elif linearized[i][-1] == "]" and linearized[i][0] != "[":
-                    remote_stack.pop()
-                if len(remote_stack) == 0:
-                    break
+            # remote_stack = [i]
+            # # the remote edge may refer to a node with arbitrary length
+            # while True:
+            #     i += 1
+            #     # consider cases like "[]" where the first one is one terminal in the passage
+            #     if linearized[i][0] == "[" and linearized[i][-1] != "]":
+            #         remote_stack.append(i)
+            #     elif linearized[i][-1] == "]" and linearized[i][0] != "[":
+            #         remote_stack.pop()
+            #     if len(remote_stack) == 0:
+            #         break
+            i = jump_remote(linearized, i)
 
         if (elem[0] != "[" or elem == "[]") and elem != "IMPLICIT]":
             index += 1
 
         if elem == "...":
             next_token_word = ori_sent[index]
+
+            # find the next word after the "..." in linearized
             j = i + 1
             while True:
-                if linearized[j]
+                if linearized[j][0] == "[" and linearized[j][-1] == "*":
+                    j = jump_remote(linearized, j)
+                if len(linearized[j]) > 0 and linearized[j][-1] == "]" and linearized[j] != "IMPLICIT]":
+                    next_word_after = linearized[j][:-1]
+                    break
+                j += 1
+
+            # find the index of the node after the "..."
+            index_n = index + 1
+            while True:
+                if ori_sent[index_n] == next_word_after:
+                    break
+                index_n += 1
+
+            
 
 
 
         i += 1
+
+def jump_remote(linearized, i):
+    """
+
+    :param linearized: linearized passage list
+    :param i: current index in the loop
+    :return: index of the rightmost boundary of the remote node
+    """
+    remote_stack = [i]
+    # the remote edge may refer to a node with arbitrary length
+    while True:
+        i += 1
+        # consider cases like "[]" where the first one is one terminal in the passage
+        if linearized[i][0] == "[" and linearized[i][-1] != "]":
+            remote_stack.append(i)
+        elif linearized[i][-1] == "]" and linearized[i][0] != "[":
+            remote_stack.pop()
+        if len(remote_stack) == 0:
+            break
+    return i
 
 
 def linearize(sent_passage):
