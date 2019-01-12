@@ -223,7 +223,7 @@ def new_clean_ellipsis(linearized, ori_sent):
     instead of counting the number of "..." and do swap, this function try to align terminal tokens
     to solve discontinuities issues
     :param linearized: linearized passage (list of elements)
-    :param ori_sent: original sentence for token alignment
+    :param ori_sent: original sentence for token alignment (list of terminals)
     :return: linearized passage without ellipsis generated from discontinuities
     """
 
@@ -253,34 +253,164 @@ def new_clean_ellipsis(linearized, ori_sent):
             #         break
             i = jump_remote(linearized, i)
 
-        if (elem[0] != "[" or elem == "[]") and elem != "IMPLICIT]":
+        if (elem[0] != "[" or elem == "[]") and elem != "IMPLICIT]" and elem != "...":
             index += 1
 
         if elem == "...":
-            next_token_word = ori_sent[index]
 
-            # find the next word after the "..." in linearized
-            j = i + 1
-            while True:
-                if linearized[j][0] == "[" and linearized[j][-1] == "*":
-                    j = jump_remote(linearized, j)
-                if len(linearized[j]) > 0 and linearized[j][-1] == "]" and linearized[j] != "IMPLICIT]":
-                    next_word_after = linearized[j][:-1]
-                    break
-                j += 1
+            # next_word_ori = ori_sent[index]
+            #
+            # # find the next word after the "..." in linearized
+            # j = i + 1
+            # while True:
+            #     if linearized[j][0] == "[" and linearized[j][-1] == "*":
+            #         j = jump_remote(linearized, j)
+            #     if len(linearized[j]) > 0 and linearized[j][-1] == "]" and linearized[j] != "IMPLICIT]":
+            #         next_word_after_in_lin = linearized[j][:-1]
+            #         break
+            #     j += 1
+            #
+            # # find the index of the node after the "..."
+            # index_n = index + 1
+            # while True:
+            #     if ori_sent[index_n] == next_word_after_in_lin:
+            #         break
+            #     index_n += 1
 
-            # find the index of the node after the "..."
-            index_n = index + 1
-            while True:
-                if ori_sent[index_n] == next_word_after:
-                    break
-                index_n += 1
+            # try to find the next 3 words after the "..." in case there is a repetition of phrases/words
+            # if less than 3 words available, then will get whatever number of words left
+            next_n_words = 3
+            next_word_index_after_ellipsis = find_next_n_words_index_in_linearized(linearized, next_n_words, i)
+            next_words_after_ellipsis = [linearized[k].strip("]") if linearized[k][0] != "]"
+                                         else linearized[k][0] for k in next_word_index_after_ellipsis]
 
-            
+            """
+            what this is doing:
+            1. find the rightmost word before the "..." (index) and
+            1. the leftmost word after "..." (next_words_after_ellipsis)
+            2. find the phrase that represents "..." in the original sent
+            3. find the indices of this phrase in linearized
+            4. swap
+            """
+            rightmost_index = index - 1
+            leftmost_index_after_ellipsis = find_next_n_words_in_ori(ori_sent,
+                                                                     next_words_after_ellipsis, rightmost_index)
+            leftmost_word_after_ellipsis = ori_sent[leftmost_index_after_ellipsis]
 
+            # print(ori_sent)
+            # print("leftmost word after ellipsis: %s" % leftmost_word_after_ellipsis)
+            # print("rightmost index: %d" % rightmost_index)
+
+            ellipsis_phrase = ori_sent[rightmost_index:leftmost_index_after_ellipsis]
+
+            ellipsis_left_ind, ellipsis_right_ind = find_ellipsis_index_in_linearized(linearized,
+                                                                             ellipsis_phrase, i)
+
+            cleaned_linearized += linearized[:i] + linearized[ellipsis_left_ind:ellipsis_right_ind] + \
+                         linearized[i+1: ellipsis_left_ind] + linearized[ellipsis_right_ind:]
 
 
         i += 1
+
+    return cleaned_linearized
+
+
+def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
+    """
+    find the indices of that represent the "..." in the linearized passage
+    :param linearized: linearized passage of list
+    :param ellipsis_phrase: list of termianls
+    :param start_index: current index in linearized
+    :return: list of indices of the words for "..." in the linearized passage (list of elements)
+    """
+    ellipsis_size = len(ellipsis_phrase)
+    ellipsis_start_index_in_linearized = -1
+    while start_index < len(linearized):
+        next_n_words_index_in_linearized = find_next_n_words_index_in_linearized(linearized, ellipsis_size, start_index)
+        next_n_words = [linearized[k].strip("]") if linearized[k][0] != "]"
+                                         else linearized[k][0] for k in next_n_words_index_in_linearized]
+        if next_n_words == ellipsis_phrase:
+            ellipsis_start_index_in_linearized = next_n_words_index_in_linearized[0]
+            break
+        start_index += 1
+
+    assert ellipsis_start_index_in_linearized > -1, "ellipsis index for phrase %s not found " \
+                                                    "in linearized" % ellipsis_phrase
+
+    """
+    find the left boundary of the ellipsis, ex. in "xxx ] [A [E the] [E teenage] [C Hepburn] ]"
+    we want to find the index of the leftmost "["
+    """
+    i = ellipsis_start_index_in_linearized - 1
+    open_boundary = -1
+    while i > -1:
+        if linearized[i] == "]":
+            open_boundary = i + 1
+        i -= 1
+
+    assert open_boundary > -1, "open boundary of the ellipsis not found"
+
+    boundary_stack = ["_"]
+    close_boundary = open_boundary + 1
+    while close_boundary < len(linearized):
+        if linearized[close_boundary][0] == "[" and linearized[close_boundary][-1] != "]":
+            boundary_stack.append("_")
+        if linearized[close_boundary][-1] == "]" and linearized[close_boundary][0] != "[":
+            boundary_stack.pop()
+        if len(boundary_stack) == 0:
+            break
+        close_boundary += 1
+
+    return [open_boundary, close_boundary]
+
+
+def find_next_n_words_in_ori(ori_sent, next_words_after_ellipsis, ori_sent_index):
+    """
+    find the indices of the leftmost word after "..." in the original sentence so we know
+    what "..." represents
+    :param ori_sent: original sentence (list of terminals)
+    :param next_words_after_ellipsis:  next n words (list of terminals)
+    :param ori_sent_index: index of the rightmost word before "..." in original sent
+    :return: index of the leftmost word after the "..." in the original sent
+    """
+
+    while ori_sent_index < len(ori_sent):
+        found = True
+        cur_index = ori_sent_index
+        for next_word_after in next_words_after_ellipsis:
+            if ori_sent[cur_index] != next_word_after:
+                found = False
+                break
+            cur_index += 1
+        if found:
+            return ori_sent_index
+
+        ori_sent_index += 1
+
+    assert False, "next words %s not found in the original sentence" % next_words_after_ellipsis
+
+
+def find_next_n_words_index_in_linearized(linearized, n, start_index):
+    """
+    used to find the index of the next n words, so
+        1. we can use a n (=2 or 3) to know what "..." represents in the ori_sent
+        2. we can use the number n as a window to find the indices in linearized passages
+    :param linearized: lindearized passage in list
+    :param n: n words
+    :param start_index: the start index to search
+    :return: list of index of the next n words
+    """
+    next_n_words = []
+    j = start_index
+    while j < len(linearized):
+        if linearized[j][0] == "[" and linearized[j][-1] == "*":
+            j = jump_remote(linearized, j)
+        if len(linearized[j]) > 0 and linearized[j][-1] == "]" and linearized[j] != "IMPLICIT]":
+            next_n_words.append(j)
+        if len(next_n_words) == n:
+            break
+        j += 1
+    return next_n_words
 
 def jump_remote(linearized, i):
     """
@@ -303,16 +433,17 @@ def jump_remote(linearized, i):
     return i
 
 
-def linearize(sent_passage):
+def linearize(sent_passage, ori_sent):
     # TODO: this may not be the perfect way to get the boundary
     l1 = sent_passage._layers["1"]
     node0 = l1.heads[0]
     linearized = str(node0).split()
 
-    # print(linearized)
+    print(linearized)
 
-    linearized = clean_ellipsis(linearized)
-    # print(linearized)
+    # linearized = clean_ellipsis(linearized)
+    linearized = new_clean_ellipsis(linearized, ori_sent)
+    print(linearized)
 
     # deal with NERs (given by the UCCA files) as len(ent_type) > 0
     corrected_linearized = []
@@ -373,7 +504,7 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     #     loss += criterion(attn_weight, )
 
     # print(ori_sent)
-    linearized_target = linearize(sent_passage)
+    linearized_target = linearize(sent_passage, ori_sent)
 
     index = 0
     stack = []
@@ -678,13 +809,13 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
             num = 0
             for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
                 sent_id = sent_passage.ID
-                if int(sent_id) in ignore_for_now:
-                    continue
-                if len(ori_sent) > 70:
-                    print("sent %s is too long" %sent_id)
-                    continue
-                if int(sent_id) < 130005:
-                    continue
+                # if int(sent_id) in ignore_for_now:
+                #     continue
+                # if len(ori_sent) > 70:
+                #     print("sent %s is too long" %sent_id)
+                #     continue
+                # if int(sent_id) < 130005:
+                #     continue
                 print(sent_id)
 
                 loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn,
@@ -763,7 +894,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105005.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/123003.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
@@ -773,15 +904,14 @@ def main():
     # train_file = "check_training/"
     # dev_file = "check_evaluate/"
 
-    # train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
-
+    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
 
     """non-testing"""
     # read_save_input(train_file, dev_file)
     # sys.exit()
 
-    train_passages = load_input_data("full_train.dat")
-    dev_passages =load_input_data("sample_dev.dat")
+    # train_passages = load_input_data("full_train.dat")
+    # dev_passages =load_input_data("sample_dev.dat")
 
 
 
