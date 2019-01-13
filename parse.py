@@ -399,7 +399,7 @@ def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
     i = ellipsis_start_index_in_linearized - 1
     open_boundary = -1
     while i > -1:
-        if linearized[i] == "]":
+        if linearized[i][-1] == "]":
             open_boundary = i + 1
             break
         i -= 1
@@ -637,8 +637,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
                 #
                 if linearized_target[i + 1] != "]":
                     # attend to itself
-                    assert token[:-1] == ori_word, """the terminal word: %s should
-                     be the same as ori_sent: %s""" % (token[:-1], ori_word)
+                    assert token[:-1] == ori_word, "the terminal word: %s should " \
+                                        "be the same as ori_sent: %s" % (token[:-1], ori_word)
                     attn_weight = attn(output[index])
                     loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
                 index += 1
@@ -991,7 +991,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/129011.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/124013.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
