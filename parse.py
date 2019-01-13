@@ -336,6 +336,9 @@ def new_clean_ellipsis(linearized, ori_sent):
             token_to_remove[ellipsis_left_ind] = ellipsis_right_ind + 1
             i += 1
 
+            for _ in range(len(ellipsis_phrase)):
+                index += 1
+
             continue
 
 
@@ -353,7 +356,7 @@ def check_clean_linearized(clean_linearized, ori_sent):
     :param ori_sent: original sentence for token alignment (list of terminals)
     :return:
     """
-    to_termianl = []
+    to_terminal = []
     i = 0
     while i < len(clean_linearized):
         elem = clean_linearized[i]
@@ -361,11 +364,11 @@ def check_clean_linearized(clean_linearized, ori_sent):
             i = jump_remote(clean_linearized, i) + 1
             continue
         elif elem == "[]" or (elem[0] != "[" and elem != "]" and elem[:-1] != "IMPLICIT"):
-            to_termianl.append(elem[:-1] if elem[-1] == "]" else elem)
+            to_terminal.append(elem[:-1] if elem[-1] == "]" else elem)
         i += 1
 
-    assert to_termianl == ori_sent, "cleaned_linearized %s \n should be the same as ori_sent %s" % \
-                                    (to_termianl, ori_sent)
+    assert to_terminal == ori_sent, "cleaned_linearized %s \n should be the same as ori_sent %s" % \
+                                    (to_terminal, ori_sent)
 
 
 def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
@@ -376,6 +379,9 @@ def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
     :param start_index: current index in linearized
     :return: list of indices of the words for "..." in the linearized passage (list of elements)
     """
+
+    # print("checking")
+    # print(ellipsis_phrase)
     ellipsis_size = len(ellipsis_phrase)
     ellipsis_start_index_in_linearized = -1
     while start_index < len(linearized):
@@ -991,7 +997,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/124013.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/131002.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
