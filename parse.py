@@ -1148,22 +1148,25 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
 
     for data_file_dir in (train_file_dir, dev_file_dir):
         data_text_tensor, data_passages, data_text = \
-            train_text_tensor, train_passages, train_text if data_file_dir == train_file_dir \
-            else dev_text_tensor, dev_passages, dev_text
+            (train_text_tensor, train_passages, train_text) if data_file_dir == train_file_dir \
+            else (dev_text_tensor, dev_passages, dev_text)
+        data_list = []
 
-        with open(data_file_dir, "w") as data_file:
-            for sent_tensor, sent_passage, ori_sent in zip(data_text_tensor, data_passages, data_text):
-                sent_id = sent_passage.ID
-                if sent_id in ignore_list:
-                    continue
+        for sent_tensor, sent_passage, ori_sent in zip(data_text_tensor, data_passages, data_text):
+            new_line_data = []
+            sent_id = sent_passage.ID
+            if sent_id in ignore_list:
+                continue
 
-                clean_linearized = linearize(sent_passage, ori_sent)
+            clean_linearized = linearize(sent_passage, ori_sent)
+            new_line_data.append(sent_id)
+            new_line_data.append(ori_sent)
+            new_line_data.append(sent_tensor)
+            new_line_data.append(str(sent_passage))
+            new_line_data.append(clean_linearized)
+            data_list.append(new_line_data)
 
-                data_file.write(sent_id + ":::")
-                data_file.write(ori_sent + ":::")
-                data_file.write(sent_tensor + ":::")
-                data_file.write(sent_passage + ":::")
-                data_file.write(clean_linearized + "\n")
+        torch.save(data_list, data_file_dir)
 
     torch.save(vocab, vocab_dir)
 
@@ -1171,14 +1174,14 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
 def loading_data(file_dir):
 
     sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized = [], [], [], [], []
-    with open(file_dir) as training_file:
-        for line in training_file:
-            sent_id, ori_sent, sent_tensor, linearized, clean_linearized = line.split(":::")
-            sent_ids.append(sent_id)
-            data_text.append(ori_sent)
-            data_text_tensor.append(sent_tensor)
-            data_linearized.append(linearized)
-            data_clean_linearized.append(clean_linearized)
+    data_list = torch.load(file_dir)
+    for line in data_list:
+        (sent_id, ori_sent, sent_tensor, linearized, clean_linearized) = [i for i in line]
+        sent_ids.append(sent_id)
+        data_text.append(ori_sent)
+        data_text_tensor.append(sent_tensor)
+        data_linearized.append(linearized)
+        data_clean_linearized.append(clean_linearized)
 
     return sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized
 
@@ -1214,26 +1217,26 @@ def main():
     # read_save_input(train_file, dev_file)
     # sys.exit()
 
-    train_file_dir = "train_proc.txt"
-    dev_file_dir = "dev_proc.txt"
+    train_file_dir = "train_proc.pt"
+    dev_file_dir = "dev_proc.pt"
     vocab_dir = "vocab.pt"
 
     ignore_list = error_list + too_long_list
     preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
 
-    train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
-    dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
-    vocab = torch.load(vocab_dir)
-
-    training = True
-    checkpoint_path = "cp_epoch_300.pt"
-
-    if training:
-        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
-    else:
-        model_r, attn_r = load_test_model(checkpoint_path)
-        for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
-            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
+    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
+    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
+    # vocab = torch.load(vocab_dir)
+    #
+    # training = True
+    # checkpoint_path = "cp_epoch_300.pt"
+    #
+    # if training:
+    #     trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
+    # else:
+    #     model_r, attn_r = load_test_model(checkpoint_path)
+    #     for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
+    #         evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
 
 
     # # peek
