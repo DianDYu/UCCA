@@ -1042,7 +1042,14 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
         # TODO: add batch
         total_loss = 0
         num = 0
-        for sent_id, sent_tensor, clean_linearized, ori_sent in zip(sent_ids, train_text_tensor, train_clean_linearized, train_text):
+
+        # shuffle training data for each iteration
+        training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized, train_text))
+        random.shuffle(training_data)
+        sent_ids, train_text_tensor, train_clean_linearized, train_text = zip(*training_data)
+        
+        for sent_id, sent_tensor, clean_linearized, ori_sent in \
+                zip(sent_ids, train_text_tensor, train_clean_linearized, train_text):
             # sent_id = sent_passage.ID
             if int(sent_id) % 200 == 0:
                 print(sent_id)
