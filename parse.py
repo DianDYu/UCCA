@@ -296,9 +296,9 @@ def new_clean_ellipsis(linearized, ori_sent):
             next_word_index_after_ellipsis = find_next_n_words_index_in_linearized(linearized, next_n_words, i)
             next_words_after_ellipsis = [linearized[k].strip("]") if linearized[k][0] != "]"
                                          else linearized[k][0] for k in next_word_index_after_ellipsis]
-            print("checking")
-            print(i, linearized[i], linearized[i + 1], linearized[i + 2], linearized[i + 3], linearized[i + 4], linearized[i + 5])
-            print(next_words_after_ellipsis)
+            # print("checking")
+            # print(i, linearized[i], linearized[i + 1], linearized[i + 2], linearized[i + 3], linearized[i + 4], linearized[i + 5])
+            # print(next_words_after_ellipsis)
 
             """
             what this is doing:
@@ -469,13 +469,13 @@ def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
     if checking_termianls == ellipsis_phrase:
         return [open_boundary, close_boundary]
     else:
-        print()
-        print("***********************************")
-        print("Warning: ellipsis phrase boundary not found correctly")
-        print(ellipsis_phrase)
-        print(linearized[open_boundary: close_boundary + 1])
-        print("***********************************")
-        print()
+        # print()
+        # print("***********************************")
+        # print("Warning: ellipsis phrase boundary not found correctly")
+        # print(ellipsis_phrase)
+        # print(linearized[open_boundary: close_boundary + 1])
+        # print("***********************************")
+        # print()
         i = open_boundary
         new_close_boundary = -1
         while i <= close_boundary:
@@ -631,11 +631,11 @@ def linearize(sent_passage, ori_sent):
     node0 = l1.heads[0]
     linearized = str(node0).split()
 
-    print(linearized)
+    # print(linearized)
 
     # linearized = clean_ellipsis(linearized)
     linearized = new_clean_ellipsis(linearized, ori_sent)
-    print(linearized)
+    # print(linearized)
 
     # deal with NERs (given by the UCCA files) as len(ent_type) > 0
     corrected_linearized = []
@@ -678,7 +678,9 @@ def linearize(sent_passage, ori_sent):
         ind += 1
 
     ensure_balance_nodes(corrected_linearized)
-    print(corrected_linearized)
+
+    # print(ori_sent)
+    # print(corrected_linearized)
 
     return corrected_linearized
 
@@ -1021,10 +1023,13 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
     order_issue = [116012]
     # one_ellipsis_issue = [123000, 123003, 124013, 129011, 130005]
     # three_ellipsis_issue = [126001]
-    ellipsis_not_sure = [135008, 145001]
-    ellipsis_order_issue = [105005, 127008, 132011, 135009]
+    ellipsis_not_sure = []
+    ellipsis_order_issue = [105005, 127008, 132011, 135008, 135009, 141000, 141005, 145001, 148001]
     ignore_for_now = order_issue + ellipsis_order_issue + ellipsis_not_sure
 
+    errors = []
+    too_long = []
+    n_epoch = 1
     if training:
         # TODO: need to shuffle the order of sentences in each iteration
         for epoch in range(1, n_epoch + 1):
@@ -1033,24 +1038,35 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
             num = 0
             for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
                 sent_id = sent_passage.ID
-                print(sent_id)
-                if int(sent_id) in ignore_for_now:
-                    print("sent %s ignored" % sent_id)
-                    continue
+                if int(sent_id) % 200 == 0:
+                    print(sent_id)
+                # if int(sent_id) in ignore_for_now:
+                #     print("sent %s ignored" % sent_id)
+                #     continue
                 if len(ori_sent) > 70:
                     print("sent %s is too long" %sent_id)
+                    too_long.append(sent_id)
                     continue
-                if int(sent_id) < 141000:
-                    continue
-
-                loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn,
+                # if int(sent_id) < max(ignore_for_now):
+                #     continue
+                try:
+                    loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn,
                                               attn_optimizer, criterion, ori_sent)
-                total_loss += loss
-                num += 1
+                    total_loss += loss
+                    num += 1
+                except:
+                    print("Error: %s" % sent_id)
+                    errors.append(sent_id)
 
             # model_scheduler.step(total_loss)
             # attn_scheduler.step(total_loss)
             print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
+            print(errors)
+            print(too_long)
+
+        print("total processed: %d" % num)
+        print("total errors: %d" % len(errors))
+        print("total long sent: %d" % len(too_long))
 
         checkpoint = {
             'model': model_r.state_dict(),
@@ -1119,7 +1135,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/148011.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105003.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
@@ -1128,17 +1144,21 @@ def main():
     # sanity check
     # train_file = "check_training/"
     # dev_file = "check_evaluate/"
+    #
 
-    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    reading = True
+    reading = False
+
+    if reading:
+        train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    else:
+        train_passages = load_input_data("full_train.dat")
+        dev_passages =load_input_data("sample_dev.dat")
+
 
     """non-testing"""
     # read_save_input(train_file, dev_file)
     # sys.exit()
-
-    # train_passages = load_input_data("full_train.dat")
-    # dev_passages =load_input_data("sample_dev.dat")
-
-
 
     # prepare data
     vocab = Vocab()
