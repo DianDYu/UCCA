@@ -564,8 +564,9 @@ def linearize(sent_passage, ori_sent):
         if i[0] != "[" and i[-1] !="]":
             corrected_linearized.append("[X")
             corrected_linearized.append(i + "]")
-            in_ner = True
-            ellipsis_stack.append("_")
+            if not in_ner:
+                in_ner = True
+                ellipsis_stack.append("_")
         # deal with situations when there is a punctuation in the NER
         # special case: '[P', 'turned', '[A', 'it]', 'down]'
         # after removing ellipsis
@@ -1031,7 +1032,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/126001.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/104008.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
