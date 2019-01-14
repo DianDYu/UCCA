@@ -296,9 +296,9 @@ def new_clean_ellipsis(linearized, ori_sent):
             next_word_index_after_ellipsis = find_next_n_words_index_in_linearized(linearized, next_n_words, i)
             next_words_after_ellipsis = [linearized[k].strip("]") if linearized[k][0] != "]"
                                          else linearized[k][0] for k in next_word_index_after_ellipsis]
-            # print("checking")
-            # print(i, linearized[i], linearized[i + 1], linearized[i + 2], linearized[i + 3], linearized[i + 4], linearized[i + 5])
-            # print(next_words_after_ellipsis)
+            print("checking")
+            print(i, linearized[i], linearized[i + 1], linearized[i + 2], linearized[i + 3], linearized[i + 4], linearized[i + 5])
+            print(next_words_after_ellipsis)
 
             """
             what this is doing:
@@ -460,13 +460,20 @@ def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
     when we only want to replace [R by]
     so we do postprocessing to make sure that the boundary is correct
     """
-    checking_termianls = get_terminals(linearized[open_boundary: close_boundary])
+
+    # print("checking ")
+    # print(ellipsis_phrase)
+    # print(linearized[open_boundary: close_boundary + 1])
+
+    checking_termianls = get_terminals(linearized[open_boundary: close_boundary + 1])
     if checking_termianls == ellipsis_phrase:
         return [open_boundary, close_boundary]
     else:
         print()
         print("***********************************")
         print("Warning: ellipsis phrase boundary not found correctly")
+        print(ellipsis_phrase)
+        print(linearized[open_boundary: close_boundary + 1])
         print("***********************************")
         print()
         i = open_boundary
@@ -583,6 +590,7 @@ def find_next_n_words_index_in_linearized(linearized, n, start_index):
     while j < len(linearized):
         if linearized[j][0] == "[" and linearized[j][-1] == "*":
             j = jump_remote(linearized, j) + 1
+            continue
 
         elif len(linearized[j]) > 0 and linearized[j][-1] == "]" and linearized[j] != "]" and linearized[j] != "IMPLICIT]":
             next_n_words.append(j)
@@ -1011,9 +1019,11 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
 
     # ignore_for_now = [104004, 104005, 105000, 106005, 107005, 114005]
     order_issue = [116012]
-    one_ellipsis_issue = [123000, 123003, 124013, 129011, 130005]
-    three_ellipsis_issue = [126001]
-    ignore_for_now = order_issue + one_ellipsis_issue + three_ellipsis_issue
+    # one_ellipsis_issue = [123000, 123003, 124013, 129011, 130005]
+    # three_ellipsis_issue = [126001]
+    ellipsis_not_sure = [135008, 145001]
+    ellipsis_order_issue = [105005, 127008, 132011, 135009]
+    ignore_for_now = order_issue + ellipsis_order_issue + ellipsis_not_sure
 
     if training:
         # TODO: need to shuffle the order of sentences in each iteration
@@ -1023,14 +1033,15 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
             num = 0
             for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
                 sent_id = sent_passage.ID
-                # if int(sent_id) in ignore_for_now:
-                #     continue
-                # if len(ori_sent) > 70:
-                #     print("sent %s is too long" %sent_id)
-                #     continue
-                # if int(sent_id) < 130005:
-                #     continue
                 print(sent_id)
+                if int(sent_id) in ignore_for_now:
+                    print("sent %s ignored" % sent_id)
+                    continue
+                if len(ori_sent) > 70:
+                    print("sent %s is too long" %sent_id)
+                    continue
+                if int(sent_id) < 141000:
+                    continue
 
                 loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn,
                                               attn_optimizer, criterion, ori_sent)
@@ -1108,7 +1119,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105000.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/148011.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
