@@ -553,32 +553,61 @@ def linearize(sent_passage, ori_sent):
     in_ner = False
 
     ind = 0
+    ellipsis_stack = []
     while ind < len(linearized):
         i = linearized[ind]
         if i[0] != "[" and i[-1] !="]":
             corrected_linearized.append("[X")
             corrected_linearized.append(i + "]")
             in_ner = True
+            ellipsis_stack.append("_")
         # deal with situations when there is a punctuation in the NER
+        # special case: '[P', 'turned', '[A', 'it]', 'down]'
+        # after removing ellipsis
         elif i == "[U" and in_ner:
             corrected_linearized.append("[X")
             corrected_linearized.append(linearized[ind + 1])
             ind += 1
         else:
-            if i[-1] =="]" and in_ner:
+            if i[0] == "[" and in_ner and i[-1] != "]":
+                ellipsis_stack.append("_")
+            if i[-1] =="]" and in_ner and len(ellipsis_stack) == 1:
                 corrected_linearized.append("[X")
                 corrected_linearized.append(i)
                 corrected_linearized.append("]")
-                in_ner = False
+                ellipsis_stack.pop()
+                if len(ellipsis_stack) == 0:
+                    in_ner = False
+                    ellipsis_stack = []
+            elif i[-1] =="]" and in_ner and len(ellipsis_stack) > 1:
+                ellipsis_stack.pop()
+                corrected_linearized.append(i)
             else:
                 corrected_linearized.append(i)
 
         ind += 1
 
-    # print(corrected_linearized)
+    ensure_balance_nodes(corrected_linearized)
+    print(corrected_linearized)
 
     return corrected_linearized
 
+
+def ensure_balance_nodes(corrected_linearized):
+    """
+    make sure the cleaned linearized has balanced open/close nodes (by checking parens)
+    :param corrected_linearized:
+    :return:
+    """
+    linearized_string = " ".join(i for i in corrected_linearized)
+    left, right = 0, 0
+    for i in linearized_string:
+        if i == "[":
+            left += 1
+        if i == "]":
+            right += 1
+    assert left == right, "cleaned linearization %s \n" \
+                          "not balanced with left: %d and right: %d" % (corrected_linearized, left, right)
 
 def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion,
           ori_sent):
@@ -997,7 +1026,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/131002.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/124013.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
