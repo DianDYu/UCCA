@@ -293,6 +293,9 @@ def new_clean_ellipsis(linearized, ori_sent):
             next_word_index_after_ellipsis = find_next_n_words_index_in_linearized(linearized, next_n_words, i)
             next_words_after_ellipsis = [linearized[k].strip("]") if linearized[k][0] != "]"
                                          else linearized[k][0] for k in next_word_index_after_ellipsis]
+            # print("checking")
+            # print(i, linearized[i], linearized[i + 1], linearized[i + 2], linearized[i + 3], linearized[i + 4], linearized[i + 5])
+            # print(next_words_after_ellipsis)
 
             """
             what this is doing:
@@ -308,10 +311,12 @@ def new_clean_ellipsis(linearized, ori_sent):
             leftmost_word_after_ellipsis = ori_sent[leftmost_index_after_ellipsis]
 
             # print(ori_sent)
+            # print(leftmost_index_after_ellipsis)
             # print("leftmost word after ellipsis: %s" % leftmost_word_after_ellipsis)
             # print("rightmost index: %d" % rightmost_index)
 
             ellipsis_phrase = ori_sent[rightmost_index:leftmost_index_after_ellipsis]
+            # print(ellipsis_phrase)
 
             # ellipsis can be empty due to discontinuities
             # ex, [L After] [H [D [E four] [C years] ] [S [R in] [E the] [C theatre] ] ...
@@ -509,7 +514,7 @@ def find_next_n_words_index_in_linearized(linearized, n, start_index):
         elif len(linearized[j]) > 0 and linearized[j][0] != "[" and linearized[j][-1] != "]" and linearized[j] != "...":
             next_n_words.append(j)
 
-        elif len(next_n_words) == n:
+        if len(next_n_words) == n:
             break
         j += 1
     return next_n_words
@@ -1026,7 +1031,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/124013.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/126001.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
