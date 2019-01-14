@@ -17,6 +17,8 @@ from ucca import diffutil, ioutil, textutil, layer0, layer1
 from ucca.evaluation import LABELED, UNLABELED, EVAL_TYPES, evaluate as evaluate_ucca
 from ucca.normalization import normalize
 
+from ignore import error_list, too_long_list
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
 
@@ -110,10 +112,12 @@ class LabelModel(nn.Module):
 def read_passages(file_dirs):
     return ioutil.read_files_and_dirs(file_dirs)
 
+
 def prepareData(vocab, text):
     for sent in text:
         vocab.addSentence(sent)
     return vocab
+
 
 def get_text(passages):
     """
@@ -127,12 +131,15 @@ def get_text(passages):
         text_list.append(words_in_text)
     return text_list
 
+
 def indexesFromSentence(vocab, sentence):
     return [vocab.word2index[word] for word in sentence]
+
 
 def tensorFromSentence(vocab, sentence):
     indexes = indexesFromSentence(vocab, sentence)
     return torch.tensor(indexes, dtype=torch.long, device=device).view(-1, 1)
+
 
 def clean_ellipsis(linearized):
     """
@@ -236,7 +243,6 @@ def new_clean_ellipsis(linearized, ori_sent):
 
     i = 0
     index = 0
-    stack = []
     cleaned_linearized = []
     token_to_remove = {}
 
@@ -297,7 +303,8 @@ def new_clean_ellipsis(linearized, ori_sent):
             next_words_after_ellipsis = [linearized[k].strip("]") if linearized[k][0] != "]"
                                          else linearized[k][0] for k in next_word_index_after_ellipsis]
             # print("checking")
-            # print(i, linearized[i], linearized[i + 1], linearized[i + 2], linearized[i + 3], linearized[i + 4], linearized[i + 5])
+            # print(i, linearized[i], linearized[i + 1],
+            #           linearized[i + 2], linearized[i + 3], linearized[i + 4], linearized[i + 5])
             # print(next_words_after_ellipsis)
 
             """
@@ -348,7 +355,6 @@ def new_clean_ellipsis(linearized, ori_sent):
                 index += 1
 
             continue
-
 
         i += 1
         cleaned_linearized.append(elem)
@@ -701,7 +707,8 @@ def ensure_balance_nodes(corrected_linearized):
     assert left == right, "cleaned linearization %s \n" \
                           "not balanced with left: %d and right: %d" % (corrected_linearized, left, right)
 
-def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimizer, criterion,
+
+def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_optimizer, criterion,
           ori_sent):
     model_optimizer.zero_grad()
     attn_optimizer.zero_grad()
@@ -728,7 +735,8 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
     #     loss += criterion(attn_weight, )
 
     # print(ori_sent)
-    linearized_target = linearize(sent_passage, ori_sent)
+    # linearized_target = linearize(sent_passage, ori_sent)
+    linearized_target = clean_linearized
 
     index = 0
     stack = []
@@ -847,7 +855,6 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             top_k_value, top_k_ind = torch.topk(term_attn_weight, 1)
             pass
 
-
             # consider from the model (not teacher-forcing)
             # r = 0
             # while r < max_recur:
@@ -865,10 +872,10 @@ def train(sent_tensor, sent_passage, model, model_optimizer, attn, attn_optimize
             #     # this is the last element. Attend to the beginning
             #     else:
             #         left_most_border = stack.pop()
-            #         loss += loss += criterion(attn_weight, torch.tensor([left_most_border], dtype=torch.long, device=device))
+            #         loss += loss += criterion(attn_weight, torch.tensor([left_most_border],
+            #                           dtype=torch.long, device=device))
             #
             #     r += 1
-
 
     word_stack = [ori_sent[i] for i in stack]
     assert len(stack) == 0, "stack is not empty, left %s" % word_stack
@@ -970,11 +977,13 @@ def evaluate(sent_tensor, model, attn, ori_sent, dev_passage):
     print()
     return pred_linearized_passage
 
+
 def modified_target(dev_passage):
     l1 = dev_passage._layers["1"]
     node0 = l1.heads[0]
     linearized = str(node0).split()
     return " ".join(i[0] if i[0] == "[" and i[-1] != "]" else i for i in linearized)
+
 
 def update_token_mapping(index, token_mapping):
     """
@@ -988,7 +997,7 @@ def update_token_mapping(index, token_mapping):
     return updated_token_mapping
 
 
-def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_passages, dev_text):
+def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, sent_ids):
     # TODO: learning_rate decay
     momentum = 0.9
     learning_rate = 0.05
@@ -1001,9 +1010,6 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
     attn = AttentionModel().to(device)
 
     start = time.time()
-
-    # training = False
-    training = True
 
     checkpoint_path = "cp_epoch_300.pt"
 
@@ -1030,55 +1036,50 @@ def trainIters(n_words, train_text_tensor, train_passages, train_text, dev_text_
     errors = []
     too_long = []
     n_epoch = 1
-    if training:
-        # TODO: need to shuffle the order of sentences in each iteration
-        for epoch in range(1, n_epoch + 1):
-            # TODO: add batch
-            total_loss = 0
-            num = 0
-            for sent_tensor, sent_passage, ori_sent in zip(train_text_tensor, train_passages, train_text):
-                sent_id = sent_passage.ID
-                if int(sent_id) % 200 == 0:
-                    print(sent_id)
-                # if int(sent_id) in ignore_for_now:
-                #     print("sent %s ignored" % sent_id)
-                #     continue
-                if len(ori_sent) > 70:
-                    print("sent %s is too long" %sent_id)
-                    too_long.append(sent_id)
-                    continue
-                # if int(sent_id) < max(ignore_for_now):
-                #     continue
-                try:
-                    loss, model_r, attn_r = train(sent_tensor, sent_passage, model, model_optimizer, attn,
-                                              attn_optimizer, criterion, ori_sent)
-                    total_loss += loss
-                    num += 1
-                except:
-                    print("Error: %s" % sent_id)
-                    errors.append(sent_id)
 
-            # model_scheduler.step(total_loss)
-            # attn_scheduler.step(total_loss)
-            print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
-            print(errors)
-            print(too_long)
+    # TODO: need to shuffle the order of sentences in each iteration
+    for epoch in range(1, n_epoch + 1):
+        # TODO: add batch
+        total_loss = 0
+        num = 0
+        for sent_id, sent_tensor, clean_linearized, ori_sent in zip(sent_ids, train_text_tensor, train_clean_linearized, train_text):
+            # sent_id = sent_passage.ID
+            if int(sent_id) % 200 == 0:
+                print(sent_id)
+            # if int(sent_id) in ignore_for_now:
+            #     print("sent %s ignored" % sent_id)
+            #     continue
+            # if len(ori_sent) > 70:
+            #     print("sent %s is too long" %sent_id)
+            #     too_long.append(sent_id)
+            #     continue
+            # if int(sent_id) < max(ignore_for_now):
+            #     continue
+            try:
+                loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
+                                          attn_optimizer, criterion, ori_sent)
+                total_loss += loss
+                num += 1
+            except:
+                print("Error: %s" % sent_id)
+                errors.append(sent_id)
 
-        print("total processed: %d" % num)
-        print("total errors: %d" % len(errors))
-        print("total long sent: %d" % len(too_long))
+        # model_scheduler.step(total_loss)
+        # attn_scheduler.step(total_loss)
+        print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
+        # print(errors)
+        # print(too_long)
 
-        checkpoint = {
-            'model': model_r.state_dict(),
-            'attn': attn_r.state_dict(),
-            'vocab_size': n_words,
-        }
-        torch.save(checkpoint, "cp_epoch_%d.pt" % epoch)
+    # print("total processed: %d" % num)
+    # print("total errors: %d" % len(errors))
+    # print("total long sent: %d" % len(too_long))
 
-    else:
-        model_r, attn_r = load_test_model(checkpoint_path)
-        for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
-            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
+    checkpoint = {
+        'model': model_r.state_dict(),
+        'attn': attn_r.state_dict(),
+        'vocab_size': n_words,
+    }
+    torch.save(checkpoint, "cp_epoch_%d.pt" % epoch)
 
 
 def load_test_model(checkpoint_path):
@@ -1127,6 +1128,54 @@ def load_input_data(filename):
         return pickle.load(f)
 
 
+def preprocessing_data(ignore_list, train_passages, train_file_dir,
+                       dev_passages, dev_file_dir, vocab_dir):
+    # prepare data
+    vocab = Vocab()
+    train_text = get_text(train_passages)
+    dev_text = get_text(dev_passages)
+    vocab = prepareData(vocab, train_text)
+    vocab = prepareData(vocab, dev_text)
+    train_text_tensor = [tensorFromSentence(vocab, sent) for sent in train_text]
+    dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in dev_text]
+
+    for data_file_dir in (train_file_dir, dev_file_dir):
+        data_text_tensor, data_passages, data_text = \
+            train_text_tensor, train_passages, train_text if data_file_dir == train_file_dir \
+            else dev_text_tensor, dev_passages, dev_text
+
+        with open(data_file_dir, "w") as data_file:
+            for sent_tensor, sent_passage, ori_sent in zip(data_text_tensor, data_passages, data_text):
+                sent_id = sent_passage.ID
+                if sent_id in ignore_list:
+                    continue
+
+                clean_linearized = linearize(sent_passage, ori_sent)
+
+                data_file.write(sent_id + ":::")
+                data_file.write(ori_sent + ":::")
+                data_file.write(sent_tensor + ":::")
+                data_file.write(sent_passage + ":::")
+                data_file.write(clean_linearized + "\n")
+
+    torch.save(vocab, vocab_dir)
+
+
+def loading_data(file_dir):
+
+    sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized = [], [], [], [], []
+    with open(file_dir) as training_file:
+        for line in training_file:
+            sent_id, ori_sent, sent_tensor, linearized, clean_linearized = line.split(":::")
+            sent_ids.append(sent_id)
+            data_text.append(ori_sent)
+            data_text_tensor.append(sent_tensor)
+            data_linearized.append(linearized)
+            data_clean_linearized.append(clean_linearized)
+
+    return sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized
+
+
 def main():
     train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
     # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
@@ -1139,7 +1188,6 @@ def main():
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
-
 
     # sanity check
     # train_file = "check_training/"
@@ -1155,21 +1203,31 @@ def main():
         train_passages = load_input_data("full_train.dat")
         dev_passages =load_input_data("sample_dev.dat")
 
-
     """non-testing"""
     # read_save_input(train_file, dev_file)
     # sys.exit()
 
-    # prepare data
-    vocab = Vocab()
-    train_text = get_text(train_passages)
-    dev_text = get_text(dev_passages)
-    vocab = prepareData(vocab, train_text)
-    vocab = prepareData(vocab, dev_text)
-    train_text_tensor = [tensorFromSentence(vocab, sent) for sent in train_text]
-    dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in dev_text]
+    train_file_dir = "train_proc.txt"
+    dev_file_dir = "dev_proc.txt"
+    vocab_dir = "vocab.pt"
 
-    trainIters(vocab.n_words, train_text_tensor, train_passages, train_text, dev_text_tensor, dev_passages, dev_text)
+    ignore_list = error_list + too_long_list
+    preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+
+    train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
+    dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
+    vocab = torch.load(vocab_dir)
+
+    training = True
+    checkpoint_path = "cp_epoch_300.pt"
+
+    if training:
+        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
+    else:
+        model_r, attn_r = load_test_model(checkpoint_path)
+        for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
+            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
+
 
     # # peek
     # peek_passage = train_passages[0]
