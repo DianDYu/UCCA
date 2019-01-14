@@ -227,6 +227,9 @@ def new_clean_ellipsis(linearized, ori_sent):
     :return: linearized passage without ellipsis generated from discontinuities
     """
 
+    # print("checking")
+    # print(linearized)
+
     # including [ ...] where "..." is not in linearized
     if "..." not in linearized:
         return linearized
@@ -333,7 +336,7 @@ def new_clean_ellipsis(linearized, ori_sent):
             # print("checking")
             # print(ellipsis_phrase)
             # print(ellipsis_left_ind, ellipsis_right_ind)
-            # print(linearized[ellipsis_left_ind:ellipsis_right_ind])
+            # print(linearized[ellipsis_left_ind:ellipsis_right_ind + 1])
             # print()
 
             cleaned_linearized += linearized[ellipsis_left_ind:ellipsis_right_ind + 1]
@@ -361,19 +364,29 @@ def check_clean_linearized(clean_linearized, ori_sent):
     :param ori_sent: original sentence for token alignment (list of terminals)
     :return:
     """
+    to_terminal = get_terminals(clean_linearized)
+
+    assert to_terminal == ori_sent, "cleaned_linearized %s \n should be the same as ori_sent %s" % \
+                                    (to_terminal, ori_sent)
+
+
+def get_terminals(linearized):
+    """
+    get terminals from linearized passage (list)
+    :param linearized:
+    :return: list of terminals
+    """
     to_terminal = []
     i = 0
-    while i < len(clean_linearized):
-        elem = clean_linearized[i]
+    while i < len(linearized):
+        elem = linearized[i]
         if elem[0] == "[" and elem[-1] == "*":
-            i = jump_remote(clean_linearized, i) + 1
+            i = jump_remote(linearized, i) + 1
             continue
         elif elem == "[]" or (elem[0] != "[" and elem != "]" and elem[:-1] != "IMPLICIT"):
             to_terminal.append(elem[:-1] if elem[-1] == "]" else elem)
         i += 1
-
-    assert to_terminal == ori_sent, "cleaned_linearized %s \n should be the same as ori_sent %s" % \
-                                    (to_terminal, ori_sent)
+    return to_terminal
 
 
 def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
@@ -439,7 +452,70 @@ def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
             break
         close_boundary += 1
 
-    return [open_boundary, close_boundary]
+
+    """
+    this method works for [P turned ... down] [A it] ] 
+    but may result in problems with something like 
+    [C written] ] ... [N and] [C starring] ] [A [R by] ... [E [E her]
+    when we only want to replace [R by]
+    so we do postprocessing to make sure that the boundary is correct
+    """
+    checking_termianls = get_terminals(linearized[open_boundary: close_boundary])
+    if checking_termianls == ellipsis_phrase:
+        return [open_boundary, close_boundary]
+    else:
+        print()
+        print("***********************************")
+        print("Warning: ellipsis phrase boundary not found correctly")
+        print("***********************************")
+        print()
+        i = open_boundary
+        new_close_boundary = -1
+        while i <= close_boundary:
+            if linearized[i][:-1] == ellipsis_phrase[-1]:
+                new_close_boundary = 0
+            elif new_close_boundary > -1:
+                if linearized[i][0] == "[" and linearized[i][-1] != "]":
+                    new_close_boundary = find_first_before(linearized, i, open_boundary, -1)
+                    break
+            i += 1
+
+        assert new_close_boundary >= 0, "new close boundary not found"
+        if new_close_boundary == 0:
+            new_close_boundary = close_boundary
+
+        new_boundary_stack = ["_"]
+        new_open_boundry = new_close_boundary - 1
+
+        while new_open_boundry >= open_boundary:
+            if linearized[new_open_boundry][-1]  == "]" and linearized[new_open_boundry][0] != "[":
+                new_boundary_stack.append("_")
+            if linearized[new_open_boundry][0] == "[" and linearized[new_open_boundry][-1] != "]":
+                new_boundary_stack.pop()
+            if len(new_boundary_stack) == 0 and new_open_boundry <= ellipsis_start_index_in_linearized:
+                break
+            new_open_boundry -= 1
+
+        return [new_open_boundry, new_close_boundary]
+
+def find_first_before(linearized, index, end, pos):
+    """
+    find the index of the first pattern before index
+    :param linearized:
+    :param index:
+    :param end: the end of the loop
+    :param pos: position of the pattern (0 or -1 here for "[")
+    :return:
+    """
+    while index >= end:
+        if pos == 0:
+            if linearized[index][0] == "[" and linearized[index][-1] != "]":
+                return index
+        else:
+            if linearized[index][-1] == "]" and linearized[index][0] != "[":
+                return index
+        index -= 1
+
 
 
 def find_next_n_words_in_ori(ori_sent, next_words_after_ellipsis, ori_sent_index):
@@ -1032,7 +1108,7 @@ def main():
 
     # testing
     train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/104008.xml"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105000.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
     # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "sample_data/train/000000.xml"
