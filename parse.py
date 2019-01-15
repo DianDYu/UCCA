@@ -1000,7 +1000,7 @@ def update_token_mapping(index, token_mapping):
 def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, sent_ids):
     # TODO: learning_rate decay
     momentum = 0.9
-    learning_rate = 0.05
+    learning_rate = 0.01
     lr_decay = 0.5
     lr_start_decay = 30
     n_epoch = 300
@@ -1035,24 +1035,26 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
 
     errors = []
     too_long = []
-    n_epoch = 1
+    # epoch = 1
 
     # TODO: need to shuffle the order of sentences in each iteration
     for epoch in range(1, n_epoch + 1):
+        start_i = time.time()
+
         # TODO: add batch
         total_loss = 0
         num = 0
 
         # shuffle training data for each iteration
-        training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized, train_text))
-        random.shuffle(training_data)
-        sent_ids, train_text_tensor, train_clean_linearized, train_text = zip(*training_data)
-        
+        # training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized, train_text))
+        # random.shuffle(training_data)
+        # sent_ids, train_text_tensor, train_clean_linearized, train_text = zip(*training_data)
+
         for sent_id, sent_tensor, clean_linearized, ori_sent in \
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text):
             # sent_id = sent_passage.ID
-            if int(sent_id) % 200 == 0:
-                print(sent_id)
+            # if int(sent_id) % 200 == 0:
+            #     print(sent_id)
             # if int(sent_id) in ignore_for_now:
             #     print("sent %s ignored" % sent_id)
             #     continue
@@ -1062,11 +1064,22 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
             #     continue
             # if int(sent_id) < max(ignore_for_now):
             #     continue
+            # print("checking")
+            # print(sent_tensor.size())
+            # print(clean_linearized)
+            # print(ori_sent)
+            # break
             try:
                 loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
                                           attn_optimizer, criterion, ori_sent)
                 total_loss += loss
                 num += 1
+                if num % 1000 == 0:
+                    print("%d finished" % num)
+                # """sanity check"""
+                # print(sent_id)
+                # if num == 10:
+                #     break
             except:
                 print("Error: %s" % sent_id)
                 errors.append(sent_id)
@@ -1076,6 +1089,9 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
         print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
         # print(errors)
         # print(too_long)
+        end_i = time.time()
+        print("training time time elapsed: %.2fs" % (end_i - start_i))
+        print()
 
     # print("total processed: %d" % num)
     # print("total errors: %d" % len(errors))
@@ -1221,22 +1237,24 @@ def main():
     dev_file_dir = "dev_proc.pt"
     vocab_dir = "vocab.pt"
 
-    ignore_list = error_list + too_long_list
-    preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+    # """preprocessing (linearization)"""
+    # ignore_list = error_list + too_long_list
+    # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
 
-    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
-    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
-    # vocab = torch.load(vocab_dir)
+    """loading data"""
+    train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
+    dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
+    vocab = torch.load(vocab_dir)
     #
-    # training = True
-    # checkpoint_path = "cp_epoch_300.pt"
+    training = True
+    checkpoint_path = "cp_epoch_300.pt"
     #
-    # if training:
-    #     trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
-    # else:
-    #     model_r, attn_r = load_test_model(checkpoint_path)
-    #     for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
-    #         evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
+    if training:
+        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
+    else:
+        model_r, attn_r = load_test_model(checkpoint_path)
+        for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
+            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
 
 
     # # peek
