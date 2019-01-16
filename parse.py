@@ -1090,7 +1090,7 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
         # print(errors)
         # print(too_long)
         end_i = time.time()
-        print("training time time elapsed: %.2fs" % (end_i - start_i))
+        print("training time elapsed: %.2fs" % (end_i - start_i))
         print()
 
     # print("total processed: %d" % num)
@@ -1230,36 +1230,36 @@ def main():
     # # read_save_input(train_file, dev_file)
     # # sys.exit()
     #
-    # train_file_dir = "train_proc.pt"
-    # dev_file_dir = "dev_proc.pt"
-    # vocab_dir = "vocab.pt"
+    train_file_dir = "train_proc.pt"
+    dev_file_dir = "dev_proc.pt"
+    vocab_dir = "vocab.pt"
     #
     # # """preprocessing (linearization)"""
     # # ignore_list = error_list + too_long_list
     # # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
     #
     # """loading data"""
-    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
-    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
-    # vocab = torch.load(vocab_dir)
-    # #
-
-    """sanity check"""
-    # sanity check
-    train_file = "check_training/"
-    dev_file = "check_evaluate/"
-    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
-    train_file_dir = "ck_train_proc.pt"
-    dev_file_dir = "ck_dev_proc.pt"
-    vocab_dir = "ck_vocab.pt"
-    ignore_list = error_list + too_long_list
-    preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
     train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
     dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
     vocab = torch.load(vocab_dir)
+    # #
+
+    # """sanity check"""
+    # # sanity check
+    # train_file = "check_training/"
+    # dev_file = "check_evaluate/"
+    # train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    # train_file_dir = "ck_train_proc.pt"
+    # dev_file_dir = "ck_dev_proc.pt"
+    # vocab_dir = "ck_vocab.pt"
+    # ignore_list = error_list + too_long_list
+    # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
+    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
+    # vocab = torch.load(vocab_dir)
 
     training = True
-    checkpoint_path = "cp_epoch_300.pt"
+    checkpoint_path = "large_epoch_300.pt"
 
     if training:
         trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
