@@ -1046,9 +1046,9 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
         num = 0
 
         # shuffle training data for each iteration
-        # training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized, train_text))
-        # random.shuffle(training_data)
-        # sent_ids, train_text_tensor, train_clean_linearized, train_text = zip(*training_data)
+        training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized, train_text))
+        random.shuffle(training_data)
+        sent_ids, train_text_tensor, train_clean_linearized, train_text = zip(*training_data)
 
         for sent_id, sent_tensor, clean_linearized, ori_sent in \
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text):
@@ -1203,52 +1203,64 @@ def loading_data(file_dir):
 
 
 def main():
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
-    # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
-    # train_file = "sample_data/train"
-    dev_file = "sample_data/dev"
-
-    # testing
-    train_file  = "sample_data/train/672004.xml"
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105003.xml"
-    # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
-    # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
-    dev_file = "sample_data/train/000000.xml"
-
-    # sanity check
-    # train_file = "check_training/"
-    # dev_file = "check_evaluate/"
+    # train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
+    # # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
+    # # train_file = "sample_data/train"
+    # dev_file = "sample_data/dev"
     #
+    # # testing
+    # train_file  = "sample_data/train/672004.xml"
+    # train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/105003.xml"
+    # # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/116012.xml"
+    # # train_file = "../../Desktop/P/UCCA/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+    # dev_file = "sample_data/train/000000.xml"
 
-    reading = True
-    reading = False
 
-    if reading:
-        train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
-    else:
-        train_passages = load_input_data("full_train.dat")
-        dev_passages =load_input_data("sample_dev.dat")
+    """uncomment after sanity check"""
+    # reading = True
+    # reading = False
+    #
+    # if reading:
+    #     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    # else:
+    #     train_passages = load_input_data("full_train.dat")
+    #     dev_passages =load_input_data("sample_dev.dat")
+    #
+    # """non-testing"""
+    # # read_save_input(train_file, dev_file)
+    # # sys.exit()
+    #
+    # train_file_dir = "train_proc.pt"
+    # dev_file_dir = "dev_proc.pt"
+    # vocab_dir = "vocab.pt"
+    #
+    # # """preprocessing (linearization)"""
+    # # ignore_list = error_list + too_long_list
+    # # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+    #
+    # """loading data"""
+    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
+    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
+    # vocab = torch.load(vocab_dir)
+    # #
 
-    """non-testing"""
-    # read_save_input(train_file, dev_file)
-    # sys.exit()
-
-    train_file_dir = "train_proc.pt"
-    dev_file_dir = "dev_proc.pt"
-    vocab_dir = "vocab.pt"
-
-    # """preprocessing (linearization)"""
-    # ignore_list = error_list + too_long_list
-    # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
-
-    """loading data"""
+    """sanity check"""
+    # sanity check
+    train_file = "check_training/"
+    dev_file = "check_evaluate/"
+    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    train_file_dir = "ck_train_proc.pt"
+    dev_file_dir = "ck_dev_proc.pt"
+    vocab_dir = "ck_vocab.pt"
+    ignore_list = error_list + too_long_list
+    preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
     train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
     dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
     vocab = torch.load(vocab_dir)
-    #
+
     training = True
     checkpoint_path = "cp_epoch_300.pt"
-    #
+
     if training:
         trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
     else:
@@ -1261,6 +1273,8 @@ def main():
     # peek_passage = train_passages[0]
     # l0 = peak_passage.layer("0")
     # print([i.text for i in l0.all])
+
+
 
 
 
