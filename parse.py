@@ -826,8 +826,8 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
                     node_output = output[current_index] - output[left_border]
                     node_attn_weight = attn(node_output)
 
-                    if i + r + 1 < len(linearized_target):
-                        if linearized_target[i + r + 1] == "]":
+                    if i + 1 < len(linearized_target):
+                        if linearized_target[i + 1] == "]":
                             left_border = stack.pop()
                             left_border_word = ori_sent[left_border]
                             loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
@@ -905,6 +905,8 @@ def evaluate(sent_tensor, model, attn, ori_sent, dev_passage):
         output_i = output[i]
         attn_i = attn(output_i)
         top_k_value, top_k_ind = torch.topk(attn_i, 1)
+
+        tki = top_k_ind.data[0][0]
 
         token_mapping.append(len(pred_linearized_passage))
 
