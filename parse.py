@@ -785,7 +785,11 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
             # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
             elif len(token) > 1 and token[-1] == "]":
                 assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
-                #
+                
+                # for the last word of a unit, we don't attend to itself anymore
+                # (it makes it easier for inference time (so we don't try the recursive call for
+                # each token. This may create problems though that one word (right boundary)
+                # may choose to attend to itself. Need to think abotu this
                 if linearized_target[i + 1] != "]":
 
                     # attend to itself
