@@ -785,7 +785,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
             # elif len(token) > 1 and token[-1] == "]" and linearized_target[stack[-1]][-1] != "*":
             elif len(token) > 1 and token[-1] == "]":
                 assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
-                
+
                 # for the last word of a unit, we don't attend to itself anymore
                 # (it makes it easier for inference time (so we don't try the recursive call for
                 # each token. This may create problems though that one word (right boundary)
@@ -797,6 +797,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
                                         "be the same as ori_sent: %s" % (token[:-1], ori_word)
                     attn_weight = attn(output[index])
                     loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
+                    loss_num += 1
                 index += 1
                 # shouldn't pop for label prediction purposes
                 stack.pop()
@@ -838,6 +839,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
                 # TODO: check if the same terminal word as that in the ori_sent
                 attn_weight = attn(output[current_index])
                 loss += criterion(attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                loss_num += 1
                 # TODO: recursively compute new loss
 
                 # teach forcing
@@ -852,9 +854,11 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
                             left_border = stack.pop()
                             left_border_word = ori_sent[left_border]
                             loss += criterion(node_attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                            loss_num += 1
                             i += 1
                         else:
                             loss += criterion(node_attn_weight, torch.tensor([current_index], dtype=torch.long, device=device))
+                            loss_num += 1
                             break
                     else:
                         break
@@ -906,7 +910,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     model_optimizer.step()
     attn_optimizer.step()
 
-    return loss.item() / len(output), model, attn
+    return loss.item() / loss_num, model, attn
 
 
 def evaluate(sent_tensor, model, attn, ori_sent, dev_passage):
