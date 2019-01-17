@@ -913,7 +913,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     return loss.item() / loss_num, model, attn
 
 
-def evaluate(sent_tensor, model, attn, ori_sent, dev_passage):
+def evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
     print("original sent")
     print(ori_sent)
 
