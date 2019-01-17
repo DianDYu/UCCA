@@ -1104,7 +1104,7 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
         'attn': attn_r.state_dict(),
         'vocab_size': n_words,
     }
-    torch.save(checkpoint, "cp_epoch_%d.pt" % epoch)
+    torch.save(checkpoint, "ck_epoch_%d.pt" % epoch)
 
 
 def load_test_model(checkpoint_path):
@@ -1173,6 +1173,7 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
         for sent_tensor, sent_passage, ori_sent in zip(data_text_tensor, data_passages, data_text):
             new_line_data = []
             sent_id = sent_passage.ID
+            l0 = sent_passage["0"]
             if sent_id in ignore_list:
                 continue
 
@@ -1182,6 +1183,7 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
             new_line_data.append(sent_tensor)
             new_line_data.append(str(sent_passage))
             new_line_data.append(clean_linearized)
+            new_line_data.append([node.extra["tag"] for node in l0.all])
             data_list.append(new_line_data)
 
         torch.save(data_list, data_file_dir)
@@ -1191,17 +1193,19 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
 
 def loading_data(file_dir):
 
-    sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized = [], [], [], [], []
+    sent_ids, data_text, data_text_tensor, data_linearized, \
+        data_clean_linearized, sent_pos = [], [], [], [], [], []
     data_list = torch.load(file_dir)
     for line in data_list:
-        (sent_id, ori_sent, sent_tensor, linearized, clean_linearized) = [i for i in line]
+        (sent_id, ori_sent, sent_tensor, linearized, clean_linearized, pos) = [i for i in line]
         sent_ids.append(sent_id)
         data_text.append(ori_sent)
         data_text_tensor.append(sent_tensor)
         data_linearized.append(linearized)
         data_clean_linearized.append(clean_linearized)
+        sent_pos.append(pos)
 
-    return sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized
+    return sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized, sent_pos
 
 
 def main():
@@ -1248,27 +1252,28 @@ def main():
 
     # """sanity check"""
     # # sanity check
-    # train_file = "check_training/"
-    # dev_file = "check_evaluate/"
-    # train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
-    # train_file_dir = "ck_train_proc.pt"
-    # dev_file_dir = "ck_dev_proc.pt"
-    # vocab_dir = "ck_vocab.pt"
-    # ignore_list = error_list + too_long_list
-    # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
-    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
-    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
-    # vocab = torch.load(vocab_dir)
+    train_file = "check_training"
+    dev_file = "check_evaluate/"
+    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    train_file_dir = "ck_train_proc.pt"
+    dev_file_dir = "ck_dev_proc.pt"
+    vocab_dir = "ck_vocab.pt"
+    ignore_list = error_list + too_long_list
+    preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+    train_ids, train_text, train_text_tensor, train_linearized, \
+        train_clean_linearized, train_pos = loading_data(train_file_dir)
+    dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized, dev_pos = loading_data(dev_file_dir)
+    vocab = torch.load(vocab_dir)
 
     training = True
     checkpoint_path = "large_epoch_300.pt"
 
     if training:
-        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids)
+        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids, train_pos)
     else:
         model_r, attn_r = load_test_model(checkpoint_path)
-        for dev_tensor, dev_passage, dev_sent in zip(dev_text_tensor, dev_passages, dev_text):
-            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage)
+        for dev_tensor, dev_passage, dev_sent, pos in zip(dev_text_tensor, dev_passages, dev_text, dev_pos):
+            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage, pos)
 
 
     # # peek
