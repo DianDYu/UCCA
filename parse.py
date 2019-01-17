@@ -709,7 +709,7 @@ def ensure_balance_nodes(corrected_linearized):
 
 
 def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_optimizer, criterion,
-          ori_sent):
+          ori_sent, pos):
     model_optimizer.zero_grad()
     attn_optimizer.zero_grad()
 
@@ -718,6 +718,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     max_length = 70
 
     loss = 0
+    loss_num = 0  # the actual number of loss function called
 
     output, hidden = model(sent_tensor)
 
@@ -738,6 +739,8 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     # linearized_target = linearize(sent_passage, ori_sent)
     linearized_target = clean_linearized
 
+    print(linearized_target)
+
     index = 0
     stack = []
     i = 0
@@ -756,8 +759,21 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
             # print(token)
             # new node
             if token[0] == "[" and token[-1] != "*" and token[-1] != "]": # token[-1] != "]" is for the
+
+                # PROPN: pre-processed with [X label. During training, just ignore the loss
+                if token == "[X" and linearized_target[i + 2] == "[X":
+                    while True:
+                        if linearized_target[i + 2] == "[X":
+                            i += 2
+                            index += 1
+                        else:
+                            # not do anything here so that it will run with the same logic
+                            break
+                    continue
+
+                else:
                 # condition when it is actually a terminal "["
-                stack.append(index)
+                    stack.append(index)
 
             # ignore IMPLICIT edges
             elif token == "IMPLICIT]":
@@ -771,6 +787,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
                 assert i < len(linearized_target) - 1, "the last element shouldn't be a terminal node"
                 #
                 if linearized_target[i + 1] != "]":
+
                     # attend to itself
                     assert token[:-1] == ori_word, "the terminal word: %s should " \
                                         "be the same as ori_sent: %s" % (token[:-1], ori_word)
@@ -999,7 +1016,7 @@ def update_token_mapping(index, token_mapping):
     return updated_token_mapping
 
 
-def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, sent_ids):
+def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, sent_ids, train_pos):
     # TODO: learning_rate decay
     momentum = 0.9
     learning_rate = 0.01
@@ -1052,8 +1069,8 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
         random.shuffle(training_data)
         sent_ids, train_text_tensor, train_clean_linearized, train_text = zip(*training_data)
 
-        for sent_id, sent_tensor, clean_linearized, ori_sent in \
-                zip(sent_ids, train_text_tensor, train_clean_linearized, train_text):
+        for sent_id, sent_tensor, clean_linearized, ori_sent, pos in \
+                zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos):
             # sent_id = sent_passage.ID
             # if int(sent_id) % 200 == 0:
             #     print(sent_id)
@@ -1073,7 +1090,7 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
             # break
             try:
                 loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
-                                          attn_optimizer, criterion, ori_sent)
+                                          attn_optimizer, criterion, ori_sent, pos)
                 total_loss += loss
                 num += 1
                 if num % 1000 == 0:
@@ -1173,17 +1190,19 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
         for sent_tensor, sent_passage, ori_sent in zip(data_text_tensor, data_passages, data_text):
             new_line_data = []
             sent_id = sent_passage.ID
-            l0 = sent_passage["0"]
+            l0 = sent_passage.layer("0")
             if sent_id in ignore_list:
                 continue
 
             clean_linearized = linearize(sent_passage, ori_sent)
+
             new_line_data.append(sent_id)
             new_line_data.append(ori_sent)
             new_line_data.append(sent_tensor)
             new_line_data.append(str(sent_passage))
             new_line_data.append(clean_linearized)
             new_line_data.append([node.extra["tag"] for node in l0.all])
+
             data_list.append(new_line_data)
 
         torch.save(data_list, data_file_dir)
@@ -1244,16 +1263,16 @@ def main():
     # # ignore_list = error_list + too_long_list
     # # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
     #
-    # """loading data"""
-    train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
-    dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
-    vocab = torch.load(vocab_dir)
-    # #
+    # # """loading data"""
+    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
+    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
+    # vocab = torch.load(vocab_dir)
+    # # #
 
     # """sanity check"""
     # # sanity check
-    train_file = "check_training"
-    dev_file = "check_evaluate/"
+    train_file = "sample_data/train/672004.xml"
+    dev_file = "check_evaluate/000000.xml"
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
     train_file_dir = "ck_train_proc.pt"
     dev_file_dir = "ck_dev_proc.pt"
