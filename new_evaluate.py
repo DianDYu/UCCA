@@ -95,6 +95,9 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
                     l0_node_list.append(terminal_node)
                     combine_list.append(terminal_node)
                     i += 1
+
+                    if i >= len(ori_sent):
+                        break
                     # for cases like "Lara Croft: Tomb Raider"
                     if ori_sent[i] == ":" and i + 1 < len(pos) and pos[i + 1] == "PROPN":
                         continue
