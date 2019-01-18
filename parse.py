@@ -1330,11 +1330,11 @@ def main():
 
 
     """uncomment after sanity check"""
-    reading = True
+    # reading = True
     # reading = False
     #
-    if reading:
-        train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    # if reading:
+    #     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
     # else:
     #     train_passages = load_input_data("full_train.dat")
     #     dev_passages =load_input_data("sample_dev.dat")
@@ -1343,15 +1343,22 @@ def main():
     # # read_save_input(train_file, dev_file)
     # # sys.exit()
     #
+
+
+    reading_data = False
+
     train_file_dir = "train_proc.pt"
     dev_file_dir = "dev_proc.pt"
     vocab_dir = "vocab.pt"
+
+    """preprocessing (linearization)"""
+    if reading_data:
+        train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+        ignore_list = error_list + too_long_list
+        preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+        sys.exit()
     #
-    # # """preprocessing (linearization)"""
-    ignore_list = error_list + too_long_list
-    preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
-    #
-    # # """loading data"""
+    """loading data"""
     train_ids, train_text, train_text_tensor, train_passages, train_linearized, \
     train_clean_linearized, train_pos = loading_data(train_file_dir)
     dev_ids, dev_text, dev_text_tensor, dev_passages, dev_linearized, \
@@ -1376,12 +1383,12 @@ def main():
     # vocab = torch.load(vocab_dir)
 
     training = True
-    # checkpoint_path = "large_epoch_300.pt"
 
     if training:
         trainIters(vocab.n_words, train_text_tensor, train_clean_linearized,
                    train_text, train_ids, train_pos, train_passages)
     # else:
+    #     checkpoint_path = "large_epoch_300.pt"
     #     model_r, attn_r = load_test_model(checkpoint_path)
     #     for dev_tensor, dev_passage, dev_sent, pos in zip(dev_text_tensor, dev_passages, dev_text, dev_pos):
     #         evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage, pos)
