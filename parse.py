@@ -1152,7 +1152,7 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
                 learning_rate *= lr_decay
                 model_optimizer.param_groups[0]['lr'] = learning_rate
                 attn_optimizer.param_groups[0]['lr'] = learning_rate
-                print("new learning rate: %.4fs" % learning_rate)
+                print("new learning rate: %.4f" % learning_rate)
                 # pass
 
         if len(last_five_f1) < 5:
