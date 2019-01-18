@@ -17,7 +17,9 @@ from ucca import diffutil, ioutil, textutil, layer0, layer1
 from ucca.evaluation import LABELED, UNLABELED, EVAL_TYPES, evaluate as evaluate_ucca
 from ucca.normalization import normalize
 
+from evaluation import evaluate as evaluator
 from ignore import error_list, too_long_list
+from new_evaluate import n_evaluate
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
@@ -739,8 +741,6 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     # linearized_target = linearize(sent_passage, ori_sent)
     linearized_target = clean_linearized
 
-    # print(linearized_target)
-
     index = 0
     stack = []
     i = 0
@@ -1024,11 +1024,11 @@ def update_token_mapping(index, token_mapping):
     return updated_token_mapping
 
 
-def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, sent_ids, train_pos):
+def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages):
     # TODO: learning_rate decay
     momentum = 0.9
     learning_rate = 0.01
-    lr_decay = 0.5
+    lr_decay = 0.8
     lr_start_decay = 30
     n_epoch = 300
     criterion = nn.NLLLoss()
@@ -1064,6 +1064,14 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
     too_long = []
     # epoch = 1
 
+    last_five_f1 = []
+    start_decay_training_loss = 0.5
+    best_score = 0
+    start_saving = 50
+
+    split_num = 3701
+    # split_num = 51
+
     # TODO: need to shuffle the order of sentences in each iteration
     for epoch in range(1, n_epoch + 1):
         start_i = time.time()
@@ -1073,9 +1081,18 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
         num = 0
 
         # shuffle training data for each iteration
-        training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized, train_text))
+        training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
+                                 t_text, t_passages, t_pos))
         random.shuffle(training_data)
-        sent_ids, train_text_tensor, train_clean_linearized, train_text = zip(*training_data)
+
+        # cross_validation
+        cr_training = training_data[:split_num]
+        cr_validaton = training_data[split_num:]
+
+        sent_ids, train_text_tensor, train_clean_linearized, \
+            train_text, train_passages, train_pos = zip(*cr_training)
+        val_ids, val_text_tensor, val_clean_linearized, \
+            val_text, val_passages, val_pos = zip(*cr_validaton)
 
         for sent_id, sent_tensor, clean_linearized, ori_sent, pos in \
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos):
@@ -1113,23 +1130,84 @@ def trainIters(n_words, train_text_tensor, train_clean_linearized, train_text, s
 
         # model_scheduler.step(total_loss)
         # attn_scheduler.step(total_loss)
+        average_training_loss = total_loss / num
         print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
         # print(errors)
         # print(too_long)
         end_i = time.time()
         print("training time elapsed: %.2fs" % (end_i - start_i))
+
+        # print("total processed: %d" % num)
+        # print("total errors: %d" % len(errors))
+        # print("total long sent: %d" % len(too_long))
+
+        """cross validation to tune hyperparameters"""
+        validation_acc = get_validation_accuracy(val_text_tensor, model_r, attn_r, val_text, val_passages, val_pos)
+        print("validation accuracy (F1): %.4f" % validation_acc)
         print()
 
-    # print("total processed: %d" % num)
-    # print("total errors: %d" % len(errors))
-    # print("total long sent: %d" % len(too_long))
+        # start decay learning rate
+        if average_training_loss < start_decay_training_loss:
+            if validation_acc <= min(last_five_f1):
+                learning_rate *= lr_decay
+                model_optimizer.param_groups[0]['lr'] = learning_rate
+                attn_optimizer.param_groups[0]['lr'] = learning_rate
+                print("new learning rate: %.4fs" % learning_rate)
+                # pass
 
+        if len(last_five_f1) < 5:
+            last_five_f1.append(validation_acc)
+        else:
+            last_five_f1.pop(0)
+            last_five_f1.append(validation_acc)
+
+        if epoch > start_saving:
+            if validation_acc > best_score:
+                best_score = validation_acc
+                save_test_model(model_r, attn_r, n_words, epoch, validation_acc)
+
+
+def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos):
+    total_matches = 0
+    total_guessed = 0
+    total_ref = 0
+
+    for sent_tensor, ori_sent, tgt_passage, pos in \
+            zip(val_text_tensor, val_text, val_passages, val_pos):
+        pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos)
+        matches, guessed, refs = get_score(pred_passage, tgt_passage)
+        total_matches += matches
+        total_guessed += guessed
+        total_ref += refs
+
+    # calculate micro f1
+    p = 1.0 * total_matches / total_guessed
+    r = 1.0 * total_matches / total_ref
+    f1 = 2.0 * p * r / float(p + r)
+
+    return f1
+
+
+def get_score(pred, tgt):
+
+    score = evaluator(pred, tgt, eval_types=("unlabeled"))
+    unlabeled_score = score.evaluators["unlabeled"]
+    primary, remote = unlabeled_score.results.items()
+    summary_stats = primary[1]
+    num_matches = summary_stats.num_matches
+    num_guessed = summary_stats.num_guessed
+    num_ref = summary_stats.num_ref
+
+    return num_matches, num_guessed, num_ref
+
+
+def save_test_model(model_e, attn_e, n_words, epoch, f1):
     checkpoint = {
-        'model': model_r.state_dict(),
-        'attn': attn_r.state_dict(),
+        'model': model_e.state_dict(),
+        'attn': attn_e.state_dict(),
         'vocab_size': n_words,
     }
-    torch.save(checkpoint, "ck_epoch_%d.pt" % epoch)
+    torch.save(checkpoint, "models/epoch_%d_f1_%.2fs.pt" % (epoch, f1))
 
 
 def load_test_model(checkpoint_path):
@@ -1207,6 +1285,7 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
             new_line_data.append(sent_id)
             new_line_data.append(ori_sent)
             new_line_data.append(sent_tensor)
+            new_line_data.append(sent_passage)
             new_line_data.append(str(sent_passage))
             new_line_data.append(clean_linearized)
             new_line_data.append([node.extra["pos"] for node in l0.all])
@@ -1220,24 +1299,25 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
 
 def loading_data(file_dir):
 
-    sent_ids, data_text, data_text_tensor, data_linearized, \
-        data_clean_linearized, sent_pos = [], [], [], [], [], []
+    sent_ids, data_text, data_text_tensor, passages, data_linearized, \
+        data_clean_linearized, sent_pos = [], [], [], [], [], [], []
     data_list = torch.load(file_dir)
     for line in data_list:
-        (sent_id, ori_sent, sent_tensor, linearized, clean_linearized, pos) = [i for i in line]
+        (sent_id, ori_sent, sent_tensor, passage, linearized, clean_linearized, pos) = [i for i in line]
         sent_ids.append(sent_id)
         data_text.append(ori_sent)
         data_text_tensor.append(sent_tensor)
+        passages.append(passage)
         data_linearized.append(linearized)
         data_clean_linearized.append(clean_linearized)
         sent_pos.append(pos)
 
-    return sent_ids, data_text, data_text_tensor, data_linearized, data_clean_linearized, sent_pos
+    return sent_ids, data_text, data_text_tensor, passages, data_linearized, data_clean_linearized, sent_pos
 
 
 def main():
-    # train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
-    # # dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
+    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
+    dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
     # # train_file = "sample_data/train"
     # dev_file = "sample_data/dev"
     #
@@ -1250,11 +1330,11 @@ def main():
 
 
     """uncomment after sanity check"""
-    # reading = True
+    reading = True
     # reading = False
     #
-    # if reading:
-    #     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    if reading:
+        train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
     # else:
     #     train_passages = load_input_data("full_train.dat")
     #     dev_passages =load_input_data("sample_dev.dat")
@@ -1268,39 +1348,43 @@ def main():
     vocab_dir = "vocab.pt"
     #
     # # """preprocessing (linearization)"""
-    # # ignore_list = error_list + too_long_list
-    # # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
-    #
-    # # """loading data"""
-    # train_ids, train_text, train_text_tensor, train_linearized, train_clean_linearized = loading_data(train_file_dir)
-    # dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized = loading_data(dev_file_dir)
-    # vocab = torch.load(vocab_dir)
-    # # #
-
-    # """sanity check"""
-    # # sanity check
-    train_file = "check_training"
-    dev_file = "check_evaluate"
-    train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
-    train_file_dir = "ck_train_proc.pt"
-    dev_file_dir = "ck_dev_proc.pt"
-    vocab_dir = "ck_vocab.pt"
     ignore_list = error_list + too_long_list
     preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
-    train_ids, train_text, train_text_tensor, train_linearized, \
-        train_clean_linearized, train_pos = loading_data(train_file_dir)
-    dev_ids, dev_text, dev_text_tensor, dev_linearized, dev_clean_linearized, dev_pos = loading_data(dev_file_dir)
+    #
+    # # """loading data"""
+    train_ids, train_text, train_text_tensor, train_passages, train_linearized, \
+    train_clean_linearized, train_pos = loading_data(train_file_dir)
+    dev_ids, dev_text, dev_text_tensor, dev_passages, dev_linearized, \
+    dev_clean_linearized, dev_pos = loading_data(dev_file_dir)
     vocab = torch.load(vocab_dir)
+    # # #
+
+    # # """sanity check"""
+    # # # sanity check
+    # train_file = "check_training"
+    # dev_file = "check_evaluate"
+    # train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
+    # train_file_dir = "ck_train_proc.pt"
+    # dev_file_dir = "ck_dev_proc.pt"
+    # vocab_dir = "ck_vocab.pt"
+    # ignore_list = error_list + too_long_list
+    # preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+    # train_ids, train_text, train_text_tensor, train_passages, train_linearized, \
+    #     train_clean_linearized, train_pos = loading_data(train_file_dir)
+    # dev_ids, dev_text, dev_text_tensor, dev_passages, dev_linearized, \
+    #     dev_clean_linearized, dev_pos = loading_data(dev_file_dir)
+    # vocab = torch.load(vocab_dir)
 
     training = True
-    checkpoint_path = "large_epoch_300.pt"
+    # checkpoint_path = "large_epoch_300.pt"
 
     if training:
-        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized, train_text, train_ids, train_pos)
-    else:
-        model_r, attn_r = load_test_model(checkpoint_path)
-        for dev_tensor, dev_passage, dev_sent, pos in zip(dev_text_tensor, dev_passages, dev_text, dev_pos):
-            evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage, pos)
+        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized,
+                   train_text, train_ids, train_pos, train_passages)
+    # else:
+    #     model_r, attn_r = load_test_model(checkpoint_path)
+    #     for dev_tensor, dev_passage, dev_sent, pos in zip(dev_text_tensor, dev_passages, dev_text, dev_pos):
+    #         evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage, pos)
 
 
     # # peek
