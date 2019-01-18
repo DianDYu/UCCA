@@ -1174,11 +1174,14 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
 
     for sent_tensor, ori_sent, tgt_passage, pos in \
             zip(val_text_tensor, val_text, val_passages, val_pos):
-        pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos)
-        matches, guessed, refs = get_score(pred_passage, tgt_passage)
-        total_matches += matches
-        total_guessed += guessed
-        total_ref += refs
+        try:
+            pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos)
+            matches, guessed, refs = get_score(pred_passage, tgt_passage)
+            total_matches += matches
+            total_guessed += guessed
+            total_ref += refs
+        except Exception as e:
+            print("Error: %s in passage: %d" % (e, tgt_passage.ID))
 
     # calculate micro f1
     p = 1.0 * total_matches / total_guessed
