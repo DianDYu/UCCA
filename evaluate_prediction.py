@@ -38,7 +38,8 @@ def write_out(passage):
 
 
 def evalute_score(pred, tgt):
-    score = evaluator(pred, tgt, verbose=True, units=True, eval_types=("unlabeled"))
+    score = evaluator(pred, tgt, eval_types=("unlabeled"))
+    # score = evaluator(pred, tgt, verbose=True, units=True, eval_types=("unlabeled"))
     score.print("unlabeled")
 
 
@@ -58,7 +59,8 @@ def debugging():
         passage = n_evaluate(dev_tensor, model_r, attn_r, dev_sent, dev_passage, pos)
         write_out(passage)
         print(passage)
+        evalute_score(passage, dev_passage)
 
 
-# debugging()
-main()
+debugging()
+# main()
