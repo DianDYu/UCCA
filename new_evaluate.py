@@ -1,7 +1,6 @@
 import string
 
 from ucca import ioutil, core, layer0, layer1
-from evaluation import evaluate as evaluator
 from ucca.layer1 import FoundationalNode
 
 from parse import *
@@ -60,16 +59,16 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
                     combine_list.append(terminal_node)
                     i += 1
             else:
-                 while True:
-                     if pos[i] != "PROPN":
-                         break
-                     # create terminal node in l0
-                     terminal_token = ori_sent[i]
-                     is_punc = terminal_token in punc
-                     terminal_node = l0.add_terminal(terminal_token, is_punc)
-                     l0_node_list.append(terminal_node)
-                     combine_list.append(terminal_node)
-                     i += 1
+                while True:
+                    if pos[i] != "PROPN":
+                        break
+                    # create terminal node in l0
+                    terminal_token = ori_sent[i]
+                    is_punc = terminal_token in punc
+                    terminal_node = l0.add_terminal(terminal_token, is_punc)
+                    l0_node_list.append(terminal_node)
+                    combine_list.append(terminal_node)
+                    i += 1
 
             # combine the nodes in combine_list to one node in l1
             l1_position = len(l1._all) + 1
@@ -89,7 +88,9 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
 
             l1_position = len(l1._all) + 1
             ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, l1_position)
-            terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Foundational)
+            terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Punctuation if
+                                                   is_punc else layer1.NodeTags.Foundational)
+            terminal_node_in_l1.add(terminal_tag, terminal_node)
             l1_node_list.append(terminal_node_in_l1)
 
             output_i = output[i]
@@ -112,6 +113,8 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
                 children = []
                 while True:
                     item_node = l1_node_list.pop()
+                    itemid = item_node.ID
+                    pid = parent_node.ID
                     children.append(item_node)
                     if item_node.ID == parent_node.ID:
                         for child in children:
@@ -135,7 +138,7 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
             # create new node
             else:
                 r_top_k_node = l0_node_list[r_top_k_ind]
-                parent_node = get_parent_node(r_top_k_node)
+                r_parent_node = get_parent_node(r_top_k_node)
                 new_node_position = len(l1._all) + 1
                 new_node_ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, new_node_position)
                 new_node = FoundationalNode(new_node_ID, passage, tag=layer1.NodeTags.Foundational)
@@ -143,7 +146,7 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
                 while True:
                     item_node = l1_node_list.pop()
                     children.append(item_node)
-                    if item_node.ID == parent_node.ID:
+                    if item_node.ID == r_parent_node.ID:
                         for child in children:
                             new_node.add(str(k), child)
                             k += 1
@@ -153,9 +156,11 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
 
         i += 1
 
+        print(passage)
+
     # check if Node(1.1) is empty
     head_node = l1.heads[0]
-    if len(head_node.get_terminal()) == 0:
+    if len(head_node.get_terminals()) == 0:
         for node in l1_node_list:
             head_node.add(str(k), node)
             k += 1
@@ -182,13 +187,14 @@ def get_left_most_id(node):
     :param node:
     :return:
     """
-    while True:
-        if len(node.children) > 0:
-            node = node.children[0]
+    while len(node.children) > 0:
+        node = node.children[0]
 
     left_most_ID = node.ID
-    index_in_l0 = left_most_ID.split(core.Node.ID_SEPARATOR)[-1] - 1
-    return index_in_l0
+    index_in_l0 = left_most_ID.split(core.Node.ID_SEPARATOR)[-1]
+
+    # index in l0 starts with 1. To get the index in the l0 list, minus 1
+    return int(index_in_l0) - 1
 
 
 
