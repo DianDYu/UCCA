@@ -739,7 +739,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     # linearized_target = linearize(sent_passage, ori_sent)
     linearized_target = clean_linearized
 
-    print(linearized_target)
+    # print(linearized_target)
 
     index = 0
     stack = []
@@ -1209,7 +1209,7 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
             new_line_data.append(sent_tensor)
             new_line_data.append(str(sent_passage))
             new_line_data.append(clean_linearized)
-            new_line_data.append([node.extra["tag"] for node in l0.all])
+            new_line_data.append([node.extra["pos"] for node in l0.all])
 
             data_list.append(new_line_data)
 
@@ -1279,8 +1279,8 @@ def main():
 
     # """sanity check"""
     # # sanity check
-    train_file = "sample_data/train/672004.xml"
-    dev_file = "check_evaluate/000000.xml"
+    train_file = "check_training"
+    dev_file = "check_evaluate"
     train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
     train_file_dir = "ck_train_proc.pt"
     dev_file_dir = "ck_dev_proc.pt"
