@@ -1147,7 +1147,7 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         print()
 
         # start decay learning rate
-        if average_training_loss < start_decay_training_loss:
+        if average_training_loss < start_decay_training_loss or epoch >= 20:
             if validation_acc <= min(last_five_f1):
                 learning_rate *= lr_decay
                 model_optimizer.param_groups[0]['lr'] = learning_rate
@@ -1348,7 +1348,7 @@ def main():
     #
 
 
-    reading_data = False
+    reading_data = True
 
     train_file_dir = "train_proc.pt"
     dev_file_dir = "dev_proc.pt"
@@ -1359,7 +1359,6 @@ def main():
         train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
         ignore_list = error_list + too_long_list
         preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
-        sys.exit()
     #
     """loading data"""
     train_ids, train_text, train_text_tensor, train_passages, train_linearized, \
