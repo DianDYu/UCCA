@@ -3,7 +3,7 @@ import string
 from ucca import ioutil, core, layer0, layer1
 from ucca.layer1 import FoundationalNode
 
-from parse import *
+import torch
 
 punc = string.punctuation
 terminal_tag = "Terminal"
@@ -21,8 +21,8 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
     :return:
     """
 
-    print("original sent")
-    print(ori_sent)
+    # print("original sent")
+    # print(ori_sent)
 
     max_recur = 5
     i = 0
@@ -43,9 +43,11 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
         pos_tag = pos[i]
 
         # proper nouns (only use when there are more than one consecutive PROPNs
-        if pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM"):
+        if pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM") \
+                or (pos_tag == "DET" and i + 1 < len(ori_sent) and pos[i + 1] == "PROPN"):
 
             left_most_idx = i
+            output_i = output[i]
             combine_list = []
 
             # For cases like "April(PROPN) 30(NUM) ,(PUNCT) 2008(NUM)"
@@ -58,10 +60,34 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
                     l0_node_list.append(terminal_node)
                     combine_list.append(terminal_node)
                     i += 1
+
+            # elif pos_tag == "PROPN":
+            #     while True:
+            #         if pos[i] != "PROPN":
+            #             break
+            #         # create terminal node in l0
+            #         terminal_token = ori_sent[i]
+            #         is_punc = terminal_token in punc
+            #         terminal_node = l0.add_terminal(terminal_token, is_punc)
+            #         l0_node_list.append(terminal_node)
+            #         combine_list.append(terminal_node)
+            #         i += 1
+            # else:
+            #     # for cases like "The Bahamas"
+            #     while True:
+            #         # create terminal node in l0
+            #         terminal_token = ori_sent[i]
+            #         is_punc = terminal_token in punc
+            #         terminal_node = l0.add_terminal(terminal_token, is_punc)
+            #         l0_node_list.append(terminal_node)
+            #         combine_list.append(terminal_node)
+            #         i += 1
+            #         if pos[i] != "PROPN":
+            #             break
+
+            # including cases like "The Bahamas"
             else:
                 while True:
-                    if pos[i] != "PROPN":
-                        break
                     # create terminal node in l0
                     terminal_token = ori_sent[i]
                     is_punc = terminal_token in punc
@@ -69,6 +95,13 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
                     l0_node_list.append(terminal_node)
                     combine_list.append(terminal_node)
                     i += 1
+                    # for cases like "Lara Croft: Tomb Raider"
+                    if ori_sent[i] == ":" and i + 1 < len(pos) and pos[i + 1] == "PROPN":
+                        continue
+                    elif pos[i] != "PROPN":
+                        break
+
+
 
             # combine the nodes in combine_list to one node in l1
             l1_position = len(l1._all) + 1
@@ -156,7 +189,7 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
 
         i += 1
 
-        print(passage)
+        # print(passage)
 
     # check if Node(1.1) is empty
     head_node = l1.heads[0]
