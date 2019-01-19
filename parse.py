@@ -1028,8 +1028,8 @@ def update_token_mapping(index, token_mapping):
 def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages):
     # TODO: learning_rate decay
     momentum = 0.9
-    # learning_rate = 0.01
-    learning_rate = 0.05
+    learning_rate = 0.01
+
     lr_decay = 0.8
     lr_start_decay = 30
     n_epoch = 300
