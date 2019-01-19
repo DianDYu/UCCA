@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 torch.manual_seed(1)
+random.seed(1)
 
 from ucca import diffutil, ioutil, textutil, layer0, layer1
 from ucca.evaluation import LABELED, UNLABELED, EVAL_TYPES, evaluate as evaluate_ucca
@@ -1027,7 +1028,8 @@ def update_token_mapping(index, token_mapping):
 def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages):
     # TODO: learning_rate decay
     momentum = 0.9
-    learning_rate = 0.01
+    # learning_rate = 0.01
+    learning_rate = 0.05
     lr_decay = 0.8
     lr_start_decay = 30
     n_epoch = 300
@@ -1069,8 +1071,22 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     best_score = 0
     start_saving = 50
 
-    split_num = 3701
+    split_num = 3601
     # split_num = 51
+
+    # shuffle training data for each iteration
+    training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
+                             t_text, t_passages, t_pos))
+    random.shuffle(training_data)
+
+    # cross_validation
+    cr_training = training_data[:split_num]
+    cr_validaton = training_data[split_num:]
+
+    sent_ids, train_text_tensor, train_clean_linearized, \
+        train_text, train_passages, train_pos = zip(*cr_training)
+    val_ids, val_text_tensor, val_clean_linearized, \
+        val_text, val_passages, val_pos = zip(*cr_validaton)
 
     # TODO: need to shuffle the order of sentences in each iteration
     for epoch in range(1, n_epoch + 1):
@@ -1080,19 +1096,11 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         total_loss = 0
         num = 0
 
-        # shuffle training data for each iteration
-        training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
-                                 t_text, t_passages, t_pos))
+        training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized,
+                                 train_text, train_passages, train_pos))
         random.shuffle(training_data)
-
-        # cross_validation
-        cr_training = training_data[:split_num]
-        cr_validaton = training_data[split_num:]
-
         sent_ids, train_text_tensor, train_clean_linearized, \
-            train_text, train_passages, train_pos = zip(*cr_training)
-        val_ids, val_text_tensor, val_clean_linearized, \
-            val_text, val_passages, val_pos = zip(*cr_validaton)
+            train_text, train_passages, train_pos = zip(*training_data)
 
         for sent_id, sent_tensor, clean_linearized, ori_sent, pos in \
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos):
@@ -1174,6 +1182,8 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
 
     for sent_tensor, ori_sent, tgt_passage, pos in \
             zip(val_text_tensor, val_text, val_passages, val_pos):
+        if len(ori_sent) > 70:
+            print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
         try:
             pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos)
             matches, guessed, refs = get_score(pred_passage, tgt_passage)
@@ -1210,7 +1220,7 @@ def save_test_model(model_e, attn_e, n_words, epoch, f1):
         'attn': attn_e.state_dict(),
         'vocab_size': n_words,
     }
-    torch.save(checkpoint, "models/epoch_%d_f1_%.2fs.pt" % (epoch, f1))
+    torch.save(checkpoint, "models/epoch_%d_f1_%.2f.pt" % (epoch, f1))
 
 
 def load_test_model(checkpoint_path):
@@ -1271,6 +1281,11 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
     dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in dev_text]
 
     for data_file_dir in (train_file_dir, dev_file_dir):
+        mode = "training" if data_file_dir == train_file_dir else "dev"
+
+        sent_processed = 0
+        num_sents = 0
+
         data_text_tensor, data_passages, data_text = \
             (train_text_tensor, train_passages, train_text) if data_file_dir == train_file_dir \
             else (dev_text_tensor, dev_passages, dev_text)
@@ -1280,10 +1295,16 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
             new_line_data = []
             sent_id = sent_passage.ID
             l0 = sent_passage.layer("0")
-            if sent_id in ignore_list:
+
+            num_sents += 1
+
+            if sent_id in ignore_list and int(sent_id) < 672010:
                 continue
 
-            clean_linearized = linearize(sent_passage, ori_sent)
+            if mode == "training":
+                clean_linearized = linearize(sent_passage, ori_sent)
+            else:
+                clean_linearized = []
 
             new_line_data.append(sent_id)
             new_line_data.append(ori_sent)
@@ -1294,8 +1315,14 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
             new_line_data.append([node.extra["pos"] for node in l0.all])
 
             data_list.append(new_line_data)
+            sent_processed += 1
 
         torch.save(data_list, data_file_dir)
+
+        print("%d number of sentences for %s" % (num_sents, mode))
+        print("%d sents preprocessed fpr %s" % (sent_processed, mode))
+        print()
+
 
     torch.save(vocab, vocab_dir)
 
@@ -1319,8 +1346,8 @@ def loading_data(file_dir):
 
 
 def main():
-    train_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/train_xml/UCCA_English-Wiki/"
-    dev_file = "/home/dianyu/Desktop/UCCA/train&dev-data-17.9/dev_xml/UCCA_English-Wiki/"
+    train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+    dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
     # # train_file = "sample_data/train"
     # dev_file = "sample_data/dev"
     #
