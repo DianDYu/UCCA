@@ -1320,7 +1320,7 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
         torch.save(data_list, data_file_dir)
 
         print("%d number of sentences for %s" % (num_sents, mode))
-        print("%d sents preprocessed fpr %s" % (sent_processed, mode))
+        print("%d sents preprocessed for %s" % (sent_processed, mode))
         print()
 
 
