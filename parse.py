@@ -1069,7 +1069,8 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     last_five_f1 = []
     start_decay_training_loss = 0.5
     best_score = 0
-    start_saving = 50
+    # start_saving = 50
+    start_saving = 0
 
     split_num = 3601
     # split_num = 51
@@ -1155,7 +1156,7 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         print()
 
         # start decay learning rate
-        if average_training_loss < start_decay_training_loss or epoch >= 20:
+        if average_training_loss < start_decay_training_loss or epoch >= 10:
             if validation_acc <= min(last_five_f1):
                 learning_rate *= lr_decay
                 model_optimizer.param_groups[0]['lr'] = learning_rate
