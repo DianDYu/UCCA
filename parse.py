@@ -1051,8 +1051,15 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
     # model_optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
     # attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate, momentum=momentum)
-    model_scheduler = ReduceLROnPlateau(model_optimizer, factor=lr_decay, patience=lr_start_decay, verbose=True)
-    attn_scheduler = ReduceLROnPlateau(attn_optimizer, factor=lr_decay, patience=lr_start_decay, verbose=True)
+    # model_scheduler = ReduceLROnPlateau(model_optimizer, factor=lr_decay, patience=lr_start_decay, verbose=True)
+    # attn_scheduler = ReduceLROnPlateau(attn_optimizer, factor=lr_decay, patience=lr_start_decay, verbose=True)
+
+    """
+    TODO: Try adam with amsgrad=True 
+    Note: may need to change default value of  lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0
+    """
+    model_optimizer_adam = optim.adam(model.parameters())
+    attn_optimizer_adam = optim.adam(attn.parameters())
 
     # ignore_for_now = [104004, 104005, 105000, 106005, 107005, 114005]
     order_issue = [116012]
