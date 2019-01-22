@@ -912,8 +912,8 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     #
 
     # gradient clipping
-    # torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
-    # torch.nn.utils.clip_grad_norm_(parameters=attn.parameters(), max_norm=max_grad_norm)
+    torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
+    torch.nn.utils.clip_grad_norm_(parameters=attn.parameters(), max_norm=max_grad_norm)
 
     model_optimizer.step()
     attn_optimizer.step()
