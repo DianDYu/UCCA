@@ -21,6 +21,7 @@ from ucca.normalization import normalize
 from evaluation import evaluate as evaluator
 from ignore import error_list, too_long_list
 from new_evaluate import n_evaluate
+from match_pretrained_embedding import match_embedding
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
@@ -56,6 +57,8 @@ class RNNModel(nn.Module):
         self.dropout = 0.3
         self.batch_size = 1
 
+        self.pretrained_vectors = True
+
         self.hidden_size = self.hidden_size // self.num_directions
 
         # TODO: use pretrained embedding
@@ -65,6 +68,10 @@ class RNNModel(nn.Module):
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
+        if self.pretrained_vectors:
+            pretrained = match_embedding()
+            self.embedding.weight.data.copy_(pretrained)
+
         # h_0: (num_layers * num_directions, batch, hidden_size)
         # c_0: (num_layers * num_directions, batch, hidden_size)
         return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
