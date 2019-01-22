@@ -26,7 +26,7 @@ def match_embedding():
 def get_embeddings(embedding_file):
     embeddings = dict()
     for l in open(embedding_file, "rb").readlines():
-        l_split = l.decode('utf8'.strip().split())
+        l_split = l.decode('utf8').strip().split()
         if len(l_split) == 2:
             continue
         word, emb = l_split
