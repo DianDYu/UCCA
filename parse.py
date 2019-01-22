@@ -1058,8 +1058,8 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     TODO: Try adam with amsgrad=True 
     Note: may need to change default value of  lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0
     """
-    model_optimizer_adam = optim.adam(model.parameters())
-    attn_optimizer_adam = optim.adam(attn.parameters())
+    model_optimizer_adam = optim.Adam(model.parameters())
+    attn_optimizer_adam = optim.Adam(attn.parameters())
     model_optimizer = model_optimizer_adam
     attn_optimizer = attn_optimizer_adam
 
