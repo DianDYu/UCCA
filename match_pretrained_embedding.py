@@ -29,7 +29,6 @@ def get_embeddings(embedding_file):
         l_split = l.decode('utf8').strip().split()
         if len(l_split) == 2:
             continue
-        word, emb = l_split
-        embeddings[word] = [float(em) for em in emb]
+        embeddings[l_split[0]] = [float(em) for em in l_split[1:]]
 
     return embeddings
