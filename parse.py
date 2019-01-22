@@ -1210,7 +1210,8 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
         if len(ori_sent) > 70:
             print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
         try:
-            pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos)
+            with torch.no_grad():
+                pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos)
             matches, guessed, refs = get_score(pred_passage, tgt_passage)
             total_matches += matches
             total_guessed += guessed
