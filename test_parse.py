@@ -14,6 +14,9 @@ def main():
 
     model_r, attn_r = load_test_model(checkpoint_path)
 
+    model_r.eval()
+    attn_r.eval()
+
     f1 = get_validation_accuracy(dev_text_tensor, model_r, attn_r, dev_text, dev_passages, dev_pos)
 
     print("evaluated on %d passages" % len(dev_passages))
