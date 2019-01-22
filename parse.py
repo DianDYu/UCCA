@@ -911,7 +911,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     model_optimizer.step()
     attn_optimizer.step()
 
-    return loss.item() / loss_num, model, attn
+    return loss.item() / loss_num
 
 
 def evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
@@ -1112,6 +1112,9 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         sent_ids, train_text_tensor, train_clean_linearized, \
             train_text, train_passages, train_pos = zip(*training_data)
 
+        model.train()
+        attn.train()
+
         for sent_id, sent_tensor, clean_linearized, ori_sent, pos in \
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos):
             # sent_id = sent_passage.ID
@@ -1132,8 +1135,10 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
             # print(ori_sent)
             # break
             try:
-                loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
-                                          attn_optimizer, criterion, ori_sent, pos)
+                # loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
+                #                           attn_optimizer, criterion, ori_sent, pos)
+                loss = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
+                             attn_optimizer, criterion, ori_sent, pos)
                 total_loss += loss
                 num += 1
                 if num % 1000 == 0:
@@ -1159,8 +1164,11 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         # print("total errors: %d" % len(errors))
         # print("total long sent: %d" % len(too_long))
 
+        model.eval()
+        attn.eval()
+
         """cross validation to tune hyperparameters"""
-        validation_acc = get_validation_accuracy(val_text_tensor, model_r, attn_r, val_text, val_passages, val_pos)
+        validation_acc = get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos)
         print("validation accuracy (F1): %.4f" % validation_acc)
         print()
 
@@ -1182,7 +1190,7 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         if epoch > start_saving:
             if validation_acc > best_score:
                 best_score = validation_acc
-                save_test_model(model_r, attn_r, n_words, epoch, validation_acc)
+                save_test_model(model, attn, n_words, epoch, validation_acc)
 
 
 def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos):
