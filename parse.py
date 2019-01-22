@@ -1047,8 +1047,8 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     print_loss_total = 0  # Reset every print_every
     plot_loss_total = 0  # Reset every plot_every
 
-    model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
-    attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
+    # model_optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+    # attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate)
     # model_optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
     # attn_optimizer = optim.SGD(attn.parameters(), lr=learning_rate, momentum=momentum)
     # model_scheduler = ReduceLROnPlateau(model_optimizer, factor=lr_decay, patience=lr_start_decay, verbose=True)
@@ -1060,6 +1060,8 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     """
     model_optimizer_adam = optim.adam(model.parameters())
     attn_optimizer_adam = optim.adam(attn.parameters())
+    model_optimizer = model_optimizer_adam
+    attn_optimizer = attn_optimizer_adam
 
     # ignore_for_now = [104004, 104005, 105000, 106005, 107005, 114005]
     order_issue = [116012]
@@ -1162,20 +1164,20 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         print("validation accuracy (F1): %.4f" % validation_acc)
         print()
 
-        # start decay learning rate
-        if average_training_loss < start_decay_training_loss or epoch >= 10:
-            if validation_acc <= min(last_five_f1):
-                learning_rate *= lr_decay
-                model_optimizer.param_groups[0]['lr'] = learning_rate
-                attn_optimizer.param_groups[0]['lr'] = learning_rate
-                print("new learning rate: %.4f" % learning_rate)
-                # pass
+        # # start decay learning rate
+        # if average_training_loss < start_decay_training_loss or epoch >= 10:
+        #     if validation_acc <= min(last_five_f1):
+        #         learning_rate *= lr_decay
+        #         model_optimizer.param_groups[0]['lr'] = learning_rate
+        #         attn_optimizer.param_groups[0]['lr'] = learning_rate
+        #         print("new learning rate: %.4f" % learning_rate)
+        #         # pass
 
-        if len(last_five_f1) < 5:
-            last_five_f1.append(validation_acc)
-        else:
-            last_five_f1.pop(0)
-            last_five_f1.append(validation_acc)
+        # if len(last_five_f1) < 5:
+        #     last_five_f1.append(validation_acc)
+        # else:
+        #     last_five_f1.pop(0)
+        #     last_five_f1.append(validation_acc)
 
         if epoch > start_saving:
             if validation_acc > best_score:
@@ -1228,7 +1230,7 @@ def save_test_model(model_e, attn_e, n_words, epoch, f1):
         'attn': attn_e.state_dict(),
         'vocab_size': n_words,
     }
-    torch.save(checkpoint, "models/epoch_%d_f1_%.2f.pt" % (epoch, f1))
+    torch.save(checkpoint, "models/epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
 
 
 def load_test_model(checkpoint_path):
