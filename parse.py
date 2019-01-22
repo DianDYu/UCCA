@@ -1036,6 +1036,7 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     # TODO: learning_rate decay
     momentum = 0.9
     learning_rate = 0.01
+    param_init = 0.1
 
     lr_decay = 0.8
     lr_start_decay = 30
@@ -1044,6 +1045,13 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
 
     model = RNNModel(n_words).to(device)
     attn = AttentionModel().to(device)
+
+    # print("Initializing model parameters")
+    # for p in model.parameters():
+    #     p.data.uniform_(-param_init, param_init)
+    # for p in attn.parameters():
+    #     p.data.uniform_(-param_init, param_init)
+
 
     start = time.time()
 
