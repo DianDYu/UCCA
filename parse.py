@@ -58,6 +58,7 @@ class RNNModel(nn.Module):
         self.batch_size = 1
 
         self.pretrained_vectors = use_pretrain
+        self.fixed_embedding = True
 
         self.hidden_size = self.hidden_size // self.num_directions
 
@@ -71,6 +72,9 @@ class RNNModel(nn.Module):
         if self.pretrained_vectors:
             pretrained = match_embedding()
             self.embedding.weight.data.copy_(pretrained)
+            if self.fixed_embedding:
+                self.embedding.weight.requires_grad = False
+
 
         # h_0: (num_layers * num_directions, batch, hidden_size)
         # c_0: (num_layers * num_directions, batch, hidden_size)
@@ -97,7 +101,7 @@ class AttentionModel(nn.Module):
         self.attn = nn.Linear(500, self.max_length)
 
     def forward(self, input):
-        # TODO: check the size of input (should be the following. Need to verify for batch profcessing)
+        # TODO: check the size of input (should be the following. Need to verify for batch processing)
         # TODO: recalculate the weights/softmax after zero-off those after the current word (may change the grad tho)
         # TODO: instead of input (output of the LSTM at each timestep), combine with the embedding of the current word
         # input: (batch, hidden_size)
@@ -1053,11 +1057,11 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     model = RNNModel(n_words).to(device)
     attn = AttentionModel().to(device)
 
-    # print("Initializing model parameters")
-    # for p in model.parameters():
-    #     p.data.uniform_(-param_init, param_init)
-    # for p in attn.parameters():
-    #     p.data.uniform_(-param_init, param_init)
+    print("Initializing model parameters")
+    for p in model.parameters():
+        p.data.uniform_(-param_init, param_init)
+    for p in attn.parameters():
+        p.data.uniform_(-param_init, param_init)
 
 
     start = time.time()
