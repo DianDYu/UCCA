@@ -62,6 +62,8 @@ class RNNModel(nn.Module):
 
         self.hidden_size = self.hidden_size // self.num_directions
 
+        self.drop = nn.Dropout(self.dropout)
+
         self.rnn_type = "LSTM"
 
         # TODO: use pretrained embedding
@@ -96,7 +98,7 @@ class RNNModel(nn.Module):
         # (h_n, c_n) = hidden_final
         # h_n: (num_layers * num_directions, batch, hidden_size)
         # c_n: (num_layers * num_directions, batch, hidden_size)
-        emb = self.embedding(input)
+        emb = self.drop(self.embedding(input))
         output, hidden_final = self.rnn(emb, self.hidden)
         return output, hidden_final
 
