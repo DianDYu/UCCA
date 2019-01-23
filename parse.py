@@ -62,7 +62,7 @@ class RNNModel(nn.Module):
 
         self.hidden_size = self.hidden_size // self.num_directions
 
-        self.rnn_type == "GRU"
+        self.rnn_type = "GRU"
 
         # TODO: use pretrained embedding
         self.embedding = nn.Embedding(vocab_size, self.input_size)
