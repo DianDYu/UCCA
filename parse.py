@@ -64,8 +64,10 @@ class RNNModel(nn.Module):
 
         # TODO: use pretrained embedding
         self.embedding = nn.Embedding(vocab_size, self.input_size)
-        self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
-                            dropout=self.dropout, bidirectional=(self.num_directions==2))
+        # self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
+        #                     dropout=self.dropout, bidirectional=(self.num_directions==2))
+        self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=self.num_layers,
+                          dropout=self.dropout, bidirectional=(self.num_directions==2))
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
@@ -74,7 +76,6 @@ class RNNModel(nn.Module):
             self.embedding.weight.data.copy_(pretrained)
             if self.fixed_embedding:
                 self.embedding.weight.requires_grad = False
-
 
         # h_0: (num_layers * num_directions, batch, hidden_size)
         # c_0: (num_layers * num_directions, batch, hidden_size)
@@ -88,7 +89,8 @@ class RNNModel(nn.Module):
         # h_n: (num_layers * num_directions, batch, hidden_size)
         # c_n: (num_layers * num_directions, batch, hidden_size)
         emb = self.embedding(input)
-        output, hidden_final = self.lstm(emb, self.hidden)
+        # output, hidden_final = self.lstm(emb, self.hidden)
+        output, hidden_final = self.gru(emb, self.hidden)
         return output, hidden_final
 
 
