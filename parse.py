@@ -58,16 +58,21 @@ class RNNModel(nn.Module):
         self.batch_size = 1
 
         self.pretrained_vectors = use_pretrain
-        self.fixed_embedding = True
+        self.fixed_embedding = False
 
         self.hidden_size = self.hidden_size // self.num_directions
 
+        self.rnn_type == "GRU"
+
         # TODO: use pretrained embedding
         self.embedding = nn.Embedding(vocab_size, self.input_size)
-        # self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
-        #                     dropout=self.dropout, bidirectional=(self.num_directions==2))
-        self.gru = nn.GRU(self.input_size, self.hidden_size, num_layers=self.num_layers,
-                          dropout=self.dropout, bidirectional=(self.num_directions==2))
+        if self.rnn_type == "LSTM":
+            self.rnn = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
+                               dropout=self.dropout, bidirectional=(self.num_directions == 2))
+        else:
+            self.rnn = nn.GRU(self.input_size, self.hidden_size, num_layers=self.num_layers,
+                              dropout=self.dropout, bidirectional=(self.num_directions == 2))
+
         self.hidden = self.init_hidden()
 
     def init_hidden(self):
@@ -77,10 +82,13 @@ class RNNModel(nn.Module):
             if self.fixed_embedding:
                 self.embedding.weight.requires_grad = False
 
-        # h_0: (num_layers * num_directions, batch, hidden_size)
-        # c_0: (num_layers * num_directions, batch, hidden_size)
-        return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
-                torch.zeros(4, self.batch_size, self.hidden_size, device=device))
+        if self.rnn_type == "LSTM":
+            # h_0: (num_layers * num_directions, batch, hidden_size)
+            # c_0: (num_layers * num_directions, batch, hidden_size)
+            return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
+                    torch.zeros(4, self.batch_size, self.hidden_size, device=device))
+        else:
+            return torch.zeros(4, self.batch_size, self.hidden_size, device=device)
 
     def forward(self, input):
         # input should be of size seq_len, batch, input_size
@@ -89,8 +97,7 @@ class RNNModel(nn.Module):
         # h_n: (num_layers * num_directions, batch, hidden_size)
         # c_n: (num_layers * num_directions, batch, hidden_size)
         emb = self.embedding(input)
-        # output, hidden_final = self.lstm(emb, self.hidden)
-        output, hidden_final = self.gru(emb, self.hidden)
+        output, hidden_final = self.rnn(emb, self.hidden)
         return output, hidden_final
 
 
@@ -1060,6 +1067,7 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     attn = AttentionModel().to(device)
 
     print("Initializing model parameters")
+    print()
     for p in model.parameters():
         p.data.uniform_(-param_init, param_init)
     for p in attn.parameters():
@@ -1162,22 +1170,22 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
             # print(clean_linearized)
             # print(ori_sent)
             # break
-            try:
-                # loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
-                #                           attn_optimizer, criterion, ori_sent, pos)
-                loss = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
-                             attn_optimizer, criterion, ori_sent, pos)
-                total_loss += loss
-                num += 1
-                if num % 1000 == 0:
-                    print("%d finished" % num)
-                # """sanity check"""
-                # print(sent_id)
-                # if num == 10:
-                #     break
-            except:
-                print("Error: %s" % sent_id)
-                errors.append(sent_id)
+            # try:
+            # loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
+            #                           attn_optimizer, criterion, ori_sent, pos)
+            loss = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
+                         attn_optimizer, criterion, ori_sent, pos)
+            total_loss += loss
+            num += 1
+            if num % 1000 == 0:
+                print("%d finished" % num)
+            # """sanity check"""
+            # print(sent_id)
+            # if num == 10:
+            #     break
+            # except Exception as e:
+            #     print("Error for sent %s: %s" % (sent_id, e))
+            #     errors.append(sent_id)
 
         # model_scheduler.step(total_loss)
         # attn_scheduler.step(total_loss)
