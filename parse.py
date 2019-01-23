@@ -48,7 +48,7 @@ class Vocab:
 
 
 class RNNModel(nn.Module):
-    def __init__(self, vocab_size):
+    def __init__(self, vocab_size, use_pretrain=True):
         super(RNNModel, self).__init__()
         self.num_directions = 2
         self.hidden_size= 500
@@ -57,7 +57,7 @@ class RNNModel(nn.Module):
         self.dropout = 0.3
         self.batch_size = 1
 
-        self.pretrained_vectors = True
+        self.pretrained_vectors = use_pretrain
 
         self.hidden_size = self.hidden_size // self.num_directions
 
@@ -1220,6 +1220,8 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
     total_guessed = 0
     total_ref = 0
 
+    top_10_to_writeout = 10
+
     for sent_tensor, ori_sent, tgt_passage, pos in \
             zip(val_text_tensor, val_text, val_passages, val_pos):
         if len(ori_sent) > 70:
@@ -1231,6 +1233,11 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
             total_matches += matches
             total_guessed += guessed
             total_ref += refs
+
+            if top_10_to_writeout < 10:
+                ioutil.write_passage(pred_passage)
+                top_10_to_writeout += 1
+
         except Exception as e:
             print("Error: %s in passage: %d" % (e, tgt_passage.ID))
 
@@ -1277,7 +1284,7 @@ def load_test_model(checkpoint_path):
 
     vocab_size = checkpoint['vocab_size']
     print("Loading model parameters")
-    model = RNNModel(vocab_size)
+    model = RNNModel(vocab_size, use_pretrain=False)
     attn = AttentionModel()
     model.load_state_dict(checkpoint['model'])
     attn.load_state_dict(checkpoint['attn'])
