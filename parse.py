@@ -62,7 +62,7 @@ class RNNModel(nn.Module):
 
         self.hidden_size = self.hidden_size // self.num_directions
 
-        self.rnn_type = "GRU"
+        self.rnn_type = "LSTM"
 
         # TODO: use pretrained embedding
         self.embedding = nn.Embedding(vocab_size, self.input_size)
@@ -1170,22 +1170,22 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
             # print(clean_linearized)
             # print(ori_sent)
             # break
-            # try:
+            try:
             # loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
             #                           attn_optimizer, criterion, ori_sent, pos)
-            loss = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
-                         attn_optimizer, criterion, ori_sent, pos)
-            total_loss += loss
-            num += 1
-            if num % 1000 == 0:
-                print("%d finished" % num)
+                loss = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
+                             attn_optimizer, criterion, ori_sent, pos)
+                total_loss += loss
+                num += 1
+                if num % 1000 == 0:
+                    print("%d finished" % num)
             # """sanity check"""
             # print(sent_id)
             # if num == 10:
             #     break
-            # except Exception as e:
-            #     print("Error for sent %s: %s" % (sent_id, e))
-            #     errors.append(sent_id)
+            except Exception as e:
+                print("Error for sent %s: %s" % (sent_id, e))
+                errors.append(sent_id)
 
         # model_scheduler.step(total_loss)
         # attn_scheduler.step(total_loss)
@@ -1298,6 +1298,7 @@ def load_test_model(checkpoint_path):
 
     vocab_size = checkpoint['vocab_size']
     print("Loading model parameters")
+    print()
     model = RNNModel(vocab_size, use_pretrain=False)
     attn = AttentionModel()
     model.load_state_dict(checkpoint['model'])
