@@ -69,7 +69,7 @@ class RNNModel(nn.Module):
         if self.concat_pos:
             concat_size += self.pos_emb_size
 
-        self.concat_idx = True
+        self.concat_idx = False
         if self.concat_idx:
             concat_size += self.idx_emb_size
 
@@ -1290,6 +1290,7 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
             zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor):
         if len(ori_sent) > 70:
             print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
+            continue
         try:
             with torch.no_grad():
                 pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos, pos_tensor)
