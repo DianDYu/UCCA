@@ -57,15 +57,21 @@ class RNNModel(nn.Module):
         self.dropout = 0.3
         self.batch_size = 1
         self.pos_emb_size = 20
+        self.idx_emb_size = 20
+        self.max_length = 70
 
         self.pretrained_vectors = use_pretrain
         # self.pretrained_vectors = False
 
+        concat_size = self.input_size
+
         self.concat_pos = True
         if self.concat_pos:
-            concat_size = self.input_size + self.pos_emb_size
-        else:
-            concat_size = self.input_size
+            concat_size += self.pos_emb_size
+
+        self.concat_idx = True
+        if self.concat_idx:
+            concat_size += self.idx_emb_size
 
         self.fixed_embedding = False
 
@@ -78,7 +84,10 @@ class RNNModel(nn.Module):
         # TODO: use pretrained embedding
         self.embedding = nn.Embedding(vocab_size, self.input_size)
 
-        self.pos_embedding = nn.Embedding(pos_vocab_size, self.pos_emb_size)
+        if self.concat_pos:
+            self.pos_embedding = nn.Embedding(pos_vocab_size, self.pos_emb_size)
+        if self.concat_idx:
+            self.idx_embedding = nn.Embedding(self.max_length + 1, self.idx_emb_size)
 
         if self.rnn_type == "LSTM":
             self.lstm = nn.LSTM(concat_size, self.hidden_size, num_layers=self.num_layers,
@@ -113,12 +122,17 @@ class RNNModel(nn.Module):
         # c_n: (num_layers * num_directions, batch, hidden_size)
         # emb = self.drop(self.embedding(input))
         emb = self.embedding(input)
-        pos_emb = self.pos_embedding(pos_tensor)
+        concat_emb = emb
 
         if self.concat_pos:
-            concat_emb = torch.cat((emb, pos_emb), 2)
-        else:
-            concat_emb = emb
+            pos_emb = self.pos_embedding(pos_tensor)
+            concat_emb = torch.cat((concat_emb, pos_emb), 2)
+
+        if self.concat_idx:
+            seq_len = input.size()[0]
+            indices = torch.tensor([i for i in range(1, seq_len + 1)], dtype=torch.long, device=device).view(-1,1)
+            ind_emb = self.idx_embedding(indices)
+            concat_emb = torch.cat((concat_emb, ind_emb), 2)
 
         if self.rnn_type == "LSTM":
             output, hidden_final = self.lstm(concat_emb, self.hidden)
