@@ -9,7 +9,7 @@ punc = string.punctuation
 terminal_tag = "Terminal"
 
 
-def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
+def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos, pos_tensor):
     """
     predict a passage
     :param sent_tensor:
@@ -24,13 +24,15 @@ def n_evaluate(sent_tensor, model, attn, ori_sent, dev_passage, pos):
     # print("original sent")
     # print(ori_sent)
 
+    create_by_leftmost = True
+
     max_recur = 5
     i = 0
     k = 0
     l1_node_list = []
     l0_node_list = []
 
-    output, hidden = model(sent_tensor)
+    output, hidden = model(sent_tensor, pos_tensor)
 
     # initialize passage
     passageID = dev_passage.ID
