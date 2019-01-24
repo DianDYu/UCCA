@@ -48,7 +48,7 @@ class Vocab:
 
 
 class RNNModel(nn.Module):
-    def __init__(self, vocab_size, use_pretrain=True):
+    def __init__(self, vocab_size, pos_vocab_size, use_pretrain=True):
         super(RNNModel, self).__init__()
         self.num_directions = 2
         self.hidden_size= 500
@@ -56,8 +56,17 @@ class RNNModel(nn.Module):
         self.num_layers = 2
         self.dropout = 0.3
         self.batch_size = 1
+        self.pos_emb_size = 20
 
         self.pretrained_vectors = use_pretrain
+        # self.pretrained_vectors = False
+
+        self.concat_pos = True
+        if self.concat_pos:
+            concat_size = self.input_size + self.pos_emb_size
+        else:
+            concat_size = self.input_size
+
         self.fixed_embedding = False
 
         self.hidden_size = self.hidden_size // self.num_directions
@@ -68,11 +77,14 @@ class RNNModel(nn.Module):
 
         # TODO: use pretrained embedding
         self.embedding = nn.Embedding(vocab_size, self.input_size)
+
+        self.pos_embedding = nn.Embedding(pos_vocab_size, self.pos_emb_size)
+
         if self.rnn_type == "LSTM":
-            self.rnn = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
+            self.lstm = nn.LSTM(concat_size, self.hidden_size, num_layers=self.num_layers,
                                dropout=self.dropout, bidirectional=(self.num_directions == 2))
         else:
-            self.rnn = nn.GRU(self.input_size, self.hidden_size, num_layers=self.num_layers,
+            self.gru = nn.GRU(concat_size, self.hidden_size, num_layers=self.num_layers,
                               dropout=self.dropout, bidirectional=(self.num_directions == 2))
 
         self.hidden = self.init_hidden()
@@ -92,14 +104,26 @@ class RNNModel(nn.Module):
         else:
             return torch.zeros(4, self.batch_size, self.hidden_size, device=device)
 
-    def forward(self, input):
+    def forward(self, input, pos_tensor):
         # input should be of size seq_len, batch, input_size
+        # pos_tensor: seq_len, batch, pos_emb_size
         # output: (seq_len, batch, num_directions * hidden_size). output feature for each time step
         # (h_n, c_n) = hidden_final
         # h_n: (num_layers * num_directions, batch, hidden_size)
         # c_n: (num_layers * num_directions, batch, hidden_size)
-        emb = self.drop(self.embedding(input))
-        output, hidden_final = self.rnn(emb, self.hidden)
+        # emb = self.drop(self.embedding(input))
+        emb = self.embedding(input)
+        pos_emb = self.pos_embedding(pos_tensor)
+
+        if self.concat_pos:
+            concat_emb = torch.cat((emb, pos_emb), 2)
+        else:
+            concat_emb = emb
+
+        if self.rnn_type == "LSTM":
+            output, hidden_final = self.lstm(concat_emb, self.hidden)
+        else:
+            output, hidden_final = self.gru(concat_emb, self.hidden)
         return output, hidden_final
 
 
@@ -734,7 +758,7 @@ def ensure_balance_nodes(corrected_linearized):
 
 
 def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_optimizer, criterion,
-          ori_sent, pos):
+          ori_sent, pos, pos_tensor):
     model_optimizer.zero_grad()
     attn_optimizer.zero_grad()
 
@@ -747,7 +771,7 @@ def train(sent_tensor, clean_linearized, model, model_optimizer, attn, attn_opti
     loss = 0
     loss_num = 0  # the actual number of loss function called
 
-    output, hidden = model(sent_tensor)
+    output, hidden = model(sent_tensor, pos_tensor)
 
     assert len(sent_tensor) == len(ori_sent), "sentence should have the same length"
 
@@ -1054,7 +1078,7 @@ def update_token_mapping(index, token_mapping):
     return updated_token_mapping
 
 
-def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages):
+def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages, pos_vocab):
     # TODO: learning_rate decay
     momentum = 0.9
     learning_rate = 0.01
@@ -1065,15 +1089,15 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     n_epoch = 300
     criterion = nn.NLLLoss()
 
-    model = RNNModel(n_words).to(device)
+    model = RNNModel(n_words, pos_vocab.n_words).to(device)
     attn = AttentionModel().to(device)
 
-    print("Initializing model parameters")
-    print()
-    for p in model.parameters():
-        p.data.uniform_(-param_init, param_init)
-    for p in attn.parameters():
-        p.data.uniform_(-param_init, param_init)
+    # print("Initializing model parameters")
+    # print()
+    # for p in model.parameters():
+    #     p.data.uniform_(-param_init, param_init)
+    # for p in attn.parameters():
+    #     p.data.uniform_(-param_init, param_init)
 
 
     start = time.time()
@@ -1121,6 +1145,7 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
 
     split_num = 3601
     # split_num = 51
+    # split_num = 7
 
     # shuffle training data for each iteration
     training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
@@ -1136,6 +1161,10 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     val_ids, val_text_tensor, val_clean_linearized, \
         val_text, val_passages, val_pos = zip(*cr_validaton)
 
+    # prepare pos tagging data
+    train_pos_tensor = get_pos_tensor(pos_vocab, train_pos)
+    val_pos_tensor = get_pos_tensor(pos_vocab, val_pos)
+
     # TODO: need to shuffle the order of sentences in each iteration
     for epoch in range(1, n_epoch + 1):
         start_i = time.time()
@@ -1145,16 +1174,16 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         num = 0
 
         training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized,
-                                 train_text, train_passages, train_pos))
+                                 train_text, train_passages, train_pos, train_pos_tensor))
         random.shuffle(training_data)
         sent_ids, train_text_tensor, train_clean_linearized, \
-            train_text, train_passages, train_pos = zip(*training_data)
+            train_text, train_passages, train_pos, train_pos_tensor = zip(*training_data)
 
         model.train()
         attn.train()
 
-        for sent_id, sent_tensor, clean_linearized, ori_sent, pos in \
-                zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos):
+        for sent_id, sent_tensor, clean_linearized, ori_sent, pos, pos_tensor in \
+                zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos, train_pos_tensor):
             # sent_id = sent_passage.ID
             # if int(sent_id) % 200 == 0:
             #     print(sent_id)
@@ -1172,22 +1201,22 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
             # print(clean_linearized)
             # print(ori_sent)
             # break
-            try:
+            # try:
             # loss, model_r, attn_r = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
             #                           attn_optimizer, criterion, ori_sent, pos)
-                loss = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
-                             attn_optimizer, criterion, ori_sent, pos)
-                total_loss += loss
-                num += 1
-                if num % 1000 == 0:
-                    print("%d finished" % num)
+            loss = train(sent_tensor, clean_linearized, model, model_optimizer, attn,
+                         attn_optimizer, criterion, ori_sent, pos, pos_tensor)
+            total_loss += loss
+            num += 1
+            if num % 1000 == 0:
+                print("%d finished" % num)
             # """sanity check"""
             # print(sent_id)
             # if num == 10:
             #     break
-            except Exception as e:
-                print("Error for sent %s: %s" % (sent_id, e))
-                errors.append(sent_id)
+            # except Exception as e:
+            #     print("Error for sent %s: %s" % (sent_id, e))
+            #     errors.append(sent_id)
 
         # model_scheduler.step(total_loss)
         # attn_scheduler.step(total_loss)
@@ -1206,7 +1235,8 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         attn.eval()
 
         """cross validation to tune hyperparameters"""
-        validation_acc = get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos)
+        validation_acc = get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages,
+                                                 val_pos, val_pos_tensor)
         print("validation accuracy (F1): %.4f" % validation_acc)
         print()
 
@@ -1228,23 +1258,27 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
         if epoch > start_saving:
             if validation_acc > best_score:
                 best_score = validation_acc
-                save_test_model(model, attn, n_words, epoch, validation_acc)
+                save_test_model(model, attn, n_words, pos_vocab.n_words, epoch, validation_acc)
 
 
-def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos):
+def get_pos_tensor(vocab, pos):
+    return [tensorFromSentence(vocab, tags) for tags in pos]
+
+
+def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos, val_pos_tensor):
     total_matches = 0
     total_guessed = 0
     total_ref = 0
 
     top_10_to_writeout = 10
 
-    for sent_tensor, ori_sent, tgt_passage, pos in \
-            zip(val_text_tensor, val_text, val_passages, val_pos):
+    for sent_tensor, ori_sent, tgt_passage, pos, pos_tensor in \
+            zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor):
         if len(ori_sent) > 70:
             print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
         try:
             with torch.no_grad():
-                pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos)
+                pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos, pos_tensor)
             matches, guessed, refs = get_score(pred_passage, tgt_passage)
             total_matches += matches
             total_guessed += guessed
@@ -1255,7 +1289,7 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
                 top_10_to_writeout += 1
 
         except Exception as e:
-            print("Error: %s in passage: %d" % (e, tgt_passage.ID))
+            print("Error: %s in passage: %s" % (e, tgt_passage.ID))
 
     # calculate micro f1
     p = 1.0 * total_matches / total_guessed
@@ -1278,11 +1312,12 @@ def get_score(pred, tgt):
     return num_matches, num_guessed, num_ref
 
 
-def save_test_model(model_e, attn_e, n_words, epoch, f1):
+def save_test_model(model_e, attn_e, n_words, pos_n_words, epoch, f1):
     checkpoint = {
         'model': model_e.state_dict(),
         'attn': attn_e.state_dict(),
         'vocab_size': n_words,
+        "pos_vocab_size": pos_n_words
     }
     torch.save(checkpoint, "models/epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
 
@@ -1299,9 +1334,10 @@ def load_test_model(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
 
     vocab_size = checkpoint['vocab_size']
+    pos_vocab_size = checkpoint['pos_vocab_size']
+
     print("Loading model parameters")
-    print()
-    model = RNNModel(vocab_size, use_pretrain=False)
+    model = RNNModel(vocab_size, pos_vocab_size, use_pretrain=False)
     attn = AttentionModel()
     model.load_state_dict(checkpoint['model'])
     attn.load_state_dict(checkpoint['attn'])
@@ -1309,6 +1345,7 @@ def load_test_model(checkpoint_path):
     attn.to(device)
     model.eval()
     attn.eval()
+    print()
     return model, attn
 
 
@@ -1378,6 +1415,8 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
             new_line_data.append(str(sent_passage))
             new_line_data.append(clean_linearized)
             new_line_data.append([node.extra["pos"] for node in l0.all])
+            new_line_data.append([node.extra["ent_type"] for node in l0.all])
+            new_line_data.append([node.extra["head"] for node in l0.all])
 
             data_list.append(new_line_data)
             sent_processed += 1
@@ -1388,17 +1427,25 @@ def preprocessing_data(ignore_list, train_passages, train_file_dir,
         print("%d sents preprocessed for %s" % (sent_processed, mode))
         print()
 
-
     torch.save(vocab, vocab_dir)
+
+
+def prepare_pos_vocab(train_pos, dev_pos, pos_vocab_dir):
+    pos_vocab = Vocab()
+    pos_vocab = prepareData(pos_vocab, train_pos)
+    pos_vocab = prepareData(pos_vocab, dev_pos)
+
+    torch.save(pos_vocab, pos_vocab_dir)
 
 
 def loading_data(file_dir):
 
     sent_ids, data_text, data_text_tensor, passages, data_linearized, \
-        data_clean_linearized, sent_pos = [], [], [], [], [], [], []
+        data_clean_linearized, sent_pos, sent_ent, sent_head = [], [], [], [], [], [], [], [], []
     data_list = torch.load(file_dir)
     for line in data_list:
-        (sent_id, ori_sent, sent_tensor, passage, linearized, clean_linearized, pos) = [i for i in line]
+        (sent_id, ori_sent, sent_tensor, passage, linearized, clean_linearized, pos, ent, head)\
+            = [i for i in line]
         sent_ids.append(sent_id)
         data_text.append(ori_sent)
         data_text_tensor.append(sent_tensor)
@@ -1406,14 +1453,17 @@ def loading_data(file_dir):
         data_linearized.append(linearized)
         data_clean_linearized.append(clean_linearized)
         sent_pos.append(pos)
+        sent_ent.append(ent)
+        sent_head.append(head)
 
-    return sent_ids, data_text, data_text_tensor, passages, data_linearized, data_clean_linearized, sent_pos
+    return sent_ids, data_text, data_text_tensor, passages, data_linearized, data_clean_linearized, \
+           sent_pos, sent_ent, sent_head
 
 
 def main():
     train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-    # # train_file = "sample_data/train"
+    # train_file = "sample_data/train"
     # dev_file = "sample_data/dev"
     #
     # # testing
@@ -1445,6 +1495,7 @@ def main():
     train_file_dir = "train_proc.pt"
     dev_file_dir = "dev_proc.pt"
     vocab_dir = "vocab.pt"
+    pos_vocab_dir = "pos_vocab.pt"
 
     """preprocessing (linearization)"""
     if reading_data:
@@ -1454,10 +1505,14 @@ def main():
     #
     """loading data"""
     train_ids, train_text, train_text_tensor, train_passages, train_linearized, \
-    train_clean_linearized, train_pos = loading_data(train_file_dir)
+    train_clean_linearized, train_pos, train_ent, train_head = loading_data(train_file_dir)
     dev_ids, dev_text, dev_text_tensor, dev_passages, dev_linearized, \
-    dev_clean_linearized, dev_pos = loading_data(dev_file_dir)
+    dev_clean_linearized, dev_pos, dev_ent, dev_head = loading_data(dev_file_dir)
+
+    prepare_pos_vocab(train_pos, dev_pos, pos_vocab_dir)
+
     vocab = torch.load(vocab_dir)
+    pos_vocab = torch.load(pos_vocab_dir)
     # # #
 
     # # """sanity check"""
@@ -1480,7 +1535,7 @@ def main():
 
     if training:
         trainIters(vocab.n_words, train_text_tensor, train_clean_linearized,
-                   train_text, train_ids, train_pos, train_passages)
+                   train_text, train_ids, train_pos, train_passages, pos_vocab)
     # else:
     #     checkpoint_path = "large_epoch_300.pt"
     #     model_r, attn_r = load_test_model(checkpoint_path)
