@@ -5,7 +5,8 @@ import torch
 import torch.nn as nn
 from torch import optim
 
-from parse import RNNModel, AModel, LabelModel, get_pos_tensor
+from models import RNNModel, AModel, LabelModel
+from io_file import get_pos_tensor
 
 torch.manual_seed(1)
 random.seed(1)
@@ -190,8 +191,8 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
         return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
 
 
-def evaluate_with_label():
-    pass
+# def evaluate_with_label():
+#     pass
 
 
 def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages, pos_vocab):
