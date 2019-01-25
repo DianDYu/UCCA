@@ -13,6 +13,27 @@ random.seed(1)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
+class Vocab():
+    def __init__(self):
+        self.word2index = {}
+        self.word2count = {}
+        self.index2word = {}
+        self.n_words = 0
+
+    def addSentence(self, words_in_sent):
+        for word in words_in_sent:
+            self.addWord(word)
+
+    def addWord(self, word):
+        if word not in self.word2index:
+            self.word2index[word] = self.n_words
+            self.word2count[word] = 1
+            self.index2word[self.n_words] = word
+            self.n_words += 1
+        else:
+            self.word2count[word] += 1
+
+
 class RNNModel(nn.Module):
     def __init__(self, vocab_size, pos_vocab_size, use_pretrain=True):
         super(RNNModel, self).__init__()
@@ -119,8 +140,6 @@ class RNNModel(nn.Module):
 
 
 class AModel(nn.Module):
-    """TODO: move this class to parse.py"""
-
     """
     #     TODO: not sure if we need to
     #         1. multiple the output for each time step or
@@ -139,9 +158,8 @@ class AModel(nn.Module):
         # output_2d: (seq_len, hidden_size)
         # output_trans: (hidden_size, index)
         # mm: (1, index)
-        output_trans = output_2d[:index + 1].transpose(0, 1)
         p_output_i = F.relu(self.linear(output_i))
-        p_output_trans = F.relu(self.linear(output_trans))
+        p_output_trans = F.relu(self.linear(output_2d[:index + 1])).transpose(0, 1)
         mm = torch.mm(p_output_i, p_output_trans)
         prob = F.log_softmax(mm, dim=1)
         return prob
@@ -150,7 +168,7 @@ class AModel(nn.Module):
 class LabelModel(nn.Module):
     def __init__(self):
         super(LabelModel, self).__init__()
-        self.labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T"]
+        self.labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S"]
         self.label_size = len(self.labels)
 
         self.linear = nn.Linear(1000, 500)
