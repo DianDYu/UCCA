@@ -22,6 +22,7 @@ from evaluation import evaluate as evaluator
 from ignore import error_list, too_long_list
 from new_evaluate import n_evaluate
 from match_pretrained_embedding import match_embedding
+from with_label import new_trainIters
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
@@ -57,15 +58,17 @@ class RNNModel(nn.Module):
         self.dropout = 0.3
         self.batch_size = 1
         self.pos_emb_size = 20
-        self.idx_emb_size = 20
+        self.idx_emb_size = 100
         self.max_length = 70
 
         self.pretrained_vectors = use_pretrain
-        # self.pretrained_vectors = False
+        self.pretrained_vectors = False
+
+        self.add_idx = False
 
         concat_size = self.input_size
 
-        self.concat_pos = True
+        self.concat_pos = False
         if self.concat_pos:
             concat_size += self.pos_emb_size
 
@@ -88,6 +91,9 @@ class RNNModel(nn.Module):
             self.pos_embedding = nn.Embedding(pos_vocab_size, self.pos_emb_size)
         if self.concat_idx:
             self.idx_embedding = nn.Embedding(self.max_length + 1, self.idx_emb_size)
+
+        if self.add_idx:
+            self.idx_embedding = nn.Embedding(self.max_length + 1, self.input_size)
 
         if self.rnn_type == "LSTM":
             self.lstm = nn.LSTM(concat_size, self.hidden_size, num_layers=self.num_layers,
@@ -134,6 +140,12 @@ class RNNModel(nn.Module):
             ind_emb = self.idx_embedding(indices)
             concat_emb = torch.cat((concat_emb, ind_emb), 2)
 
+        if self.add_idx:
+            seq_len = input.size()[0]
+            indices = torch.tensor([i for i in range(1, seq_len + 1)], dtype=torch.long, device=device).view(-1, 1)
+            ind_emb = self.idx_embedding(indices)
+            concat_emb += ind_emb
+
         if self.rnn_type == "LSTM":
             output, hidden_final = self.lstm(concat_emb, self.hidden)
         else:
@@ -159,16 +171,71 @@ class AttentionModel(nn.Module):
         return raw_attn_weights
 
 
+# class LabelModel(nn.Module):
+#     def __init__(self):
+#         super(LabelModel, self).__init__()
+#         self.lables = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T"]
+#         self.label_size = len(self.labels)
+#         self.linear = nn.Linear(500, self.label_size)
+#
+#     def forward(self, input):
+#         pred_label_tensor = F.log_softmax(self.linear(input), dim=1)
+#         return pred_label_tensor
+
+
+class AModel(nn.Module):
+    """TODO: move this class to parse.py"""
+
+    """
+    #     TODO: not sure if we need to
+    #         1. multiple the output for each time step or
+    #         2. multiple the difference in output (subtraction) or
+    #         3. need another layer
+    #         4. like attention model, q(current emb), k(prev hidden) pair and attend on value (encoder)
+    #     """
+
+    def __init__(self):
+        super(AModel, self).__init__()
+        self.hidden_size = 500
+        self.linear = nn.Linear(500, self.hidden_size)
+
+    def forward(self, output_i, output_2d, index):
+        # output_i: (1, hidden_size)
+        # output_2d: (seq_len, hidden_size)
+        # output_trans: (hidden_size, index)
+        # mm: (1, index)
+        output_trans = output_2d[:index].transpose(0, 1)
+        p_output_i = F.relu(self.linear(output_i))
+        p_output_trans = F.relu(self.linear(output_trans))
+        mm = torch.mm(p_output_i, p_output_trans)
+        prob = F.log_softmax(mm, dim=1)
+        return prob
+
+
 class LabelModel(nn.Module):
     def __init__(self):
         super(LabelModel, self).__init__()
         self.lables = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T"]
         self.label_size = len(self.labels)
-        self.linear = nn.Linear(500, self.label_size)
 
-    def forward(self, input):
-        pred_label_tensor = F.log_softmax(self.linear(input), dim=1)
-        return pred_label_tensor
+        self.linear = nn.Linear(1000, 500)
+        self.map_label = nn.Linear(500, self.label_size)
+
+    def forward(self, parent_enc, child_enc):
+        """TODO: not sure if we should use matrix multip"""
+        # parent_enc: (1, hidden_size)
+        # child_enc: (1, hidden_size)
+        # p_parent_enc = F.relu(self.linear(parent_enc))
+        # p_child_enc = F.relu(self.linear(child_enc.transpose(0,1)))
+        # mm = torch.mm(p_parent_enc, p_child_enc)
+        # to_label = self.map_label()
+
+        # concat_enc: (1, 1000)
+        concat_enc = torch.cat((parent_enc, child_enc), 1)
+        # reduce_concat_enc: (1, 500)
+        reduce_concat_enc = F.relu(self.linear(concat_enc))
+        prob = F.log_softmax(self.map_label(reduce_concat_enc), dim=1)
+        return prob
 
 
 # data reader from xml
@@ -1179,7 +1246,6 @@ def trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t
     train_pos_tensor = get_pos_tensor(pos_vocab, train_pos)
     val_pos_tensor = get_pos_tensor(pos_vocab, val_pos)
 
-    # TODO: need to shuffle the order of sentences in each iteration
     for epoch in range(1, n_epoch + 1):
         start_i = time.time()
 
@@ -1476,10 +1542,10 @@ def loading_data(file_dir):
 
 
 def main():
-    train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
-    dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-    # train_file = "sample_data/train"
-    # dev_file = "sample_data/dev"
+    # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+    # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
+    train_file = "sample_data/train"
+    dev_file = "sample_data/dev"
     #
     # # testing
     # train_file  = "sample_data/train/672004.xml"
@@ -1549,8 +1615,11 @@ def main():
     training = True
 
     if training:
-        trainIters(vocab.n_words, train_text_tensor, train_clean_linearized,
-                   train_text, train_ids, train_pos, train_passages, pos_vocab)
+        # trainIters(vocab.n_words, train_text_tensor, train_clean_linearized,
+        #            train_text, train_ids, train_pos, train_passages, pos_vocab)
+        new_trainIters(vocab.n_words, train_text_tensor, train_clean_linearized,
+                       train_text, train_ids, train_pos, train_passages, pos_vocab)
+        
     # else:
     #     checkpoint_path = "large_epoch_300.pt"
     #     model_r, attn_r = load_test_model(checkpoint_path)
