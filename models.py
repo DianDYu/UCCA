@@ -166,9 +166,9 @@ class AModel(nn.Module):
 
 
 class LabelModel(nn.Module):
-    def __init__(self):
+    def __init__(self, labels):
         super(LabelModel, self).__init__()
-        self.labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S"]
+        self.labels = labels
         self.label_size = len(self.labels)
 
         self.linear = nn.Linear(1000, 500)

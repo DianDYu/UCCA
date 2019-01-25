@@ -215,7 +215,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
     model = RNNModel(n_words, pos_vocab.n_words).to(device)
     a_model = AModel().to(device)
-    label_model = LabelModel().to(device)
+    label_model = LabelModel(labels).to(device)
 
     model_optimizer = optim.Adam(model.parameters())
     a_model_optimizer = optim.Adam(a_model.parameters())
