@@ -1,6 +1,14 @@
+import random
+import time
+
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from torch import optim
+
+from parse import RNNModel, AModel, LabelModel, get_pos_tensor
+
+torch.manual_seed(1)
+random.seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -184,3 +192,82 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
 
 def evaluate_with_label():
     pass
+
+
+def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages, pos_vocab):
+    n_epoch = 300
+    criterion = nn.NLLLoss()
+
+    model = RNNModel(n_words, pos_vocab.n_words).to(device)
+    a_model = AModel().to(device)
+    label_model = LabelModel().to(device)
+
+    model_optimizer = optim.Adam(model.parameters())
+    a_model_optimizer = optim.Adam(a_model.parameters())
+    label_model_optimizer = optim.Adam(label_model.parameters())
+
+    best_score = 0
+
+    split_num = 7
+
+    training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
+                             t_text, t_passages, t_pos))
+    random.shuffle(training_data)
+
+    # cross_validation
+    cr_training = training_data[:split_num]
+    cr_validaton = training_data[split_num:]
+
+    sent_ids, train_text_tensor, train_clean_linearized, \
+    train_text, train_passages, train_pos = zip(*cr_training)
+    val_ids, val_text_tensor, val_clean_linearized, \
+    val_text, val_passages, val_pos = zip(*cr_validaton)
+
+    # prepare pos tagging data
+    train_pos_tensor = get_pos_tensor(pos_vocab, train_pos)
+    val_pos_tensor = get_pos_tensor(pos_vocab, val_pos)
+
+    for epoch in range(1, n_epoch + 1):
+        start_i = time.time()
+
+        # TODO: add batch
+        total_loss = 0
+        num = 0
+
+        training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized,
+                                 train_text, train_passages, train_pos, train_pos_tensor))
+        random.shuffle(training_data)
+        sent_ids, train_text_tensor, train_clean_linearized, \
+            train_text, train_passages, train_pos, train_pos_tensor = zip(*training_data)
+
+        model.train()
+        a_model.train()
+        label_model.train()
+
+        for sent_id, sent_tensor, clean_linearized, ori_sent, pos, pos_tensor in \
+                zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos, train_pos_tensor):
+            loss = train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model,
+                                    a_model_optimizer, label_model, label_model_optimizer, criterion,
+                                    ori_sent, pos, pos_tensor)
+            total_loss += loss
+            num += 1
+            if num % 1000 == 0:
+                print("%d finished" % num)
+
+        print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
+        end_i = time.time()
+        print("training time elapsed: %.2fs" % (end_i - start_i))
+
+        model.eval()
+        a_model.eval()
+        label_model.eval()
+
+        # validation_acc = get_validation_accuracy(val_text_tensor, model, a_model, label_model,, val_text, val_passages,
+        #                                          val_pos, val_pos_tensor)
+        # print("validation accuracy (F1): %.4f" % validation_acc)
+        # print()
+
+        # if validation_acc > best_score:
+        #     best_score = validation_acc
+        #     save_test_model(model, attn, n_words, pos_vocab.n_words, epoch, validation_acc)
+        #
