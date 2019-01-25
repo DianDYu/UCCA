@@ -1,4 +1,5 @@
 import string
+import operator
 
 from ucca import ioutil, core, layer0, layer1
 from ucca.layer1 import FoundationalNode
@@ -237,9 +238,10 @@ def get_left_most_id(node):
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text, val_passages,
                             val_pos, val_pos_tensor, labels, label2index, eval_type="unlabeled",
                             testing=False):
-    total_matches = 0
-    total_guessed = 0
-    total_ref = 0
+
+    total_labeled = (total_matches_l, total_guessed_l, total_ref_l) = (0, 0, 0)
+    total_unlabeled = (total_guessed_un, total_guessed_un, total_ref_un) = (0, 0, 0)
+
 
     top_10_to_writeout = 10
 
@@ -251,10 +253,10 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index)
-        matches, guessed, refs = get_score(pred_passage, tgt_passage, testing, eval_type)
-        total_matches += matches
-        total_guessed += guessed
-        total_ref += refs
+        labeled, unlabeled = get_score(pred_passage, tgt_passage, testing, eval_type)
+
+        total_labeled = tuple(map(operator.add, total_labeled, labeled))
+        total_unlabeled = tuple(map(operator.add, total_unlabeled, unlabeled))
 
         if top_10_to_writeout < 10:
             ioutil.write_passage(pred_passage)
@@ -263,6 +265,13 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
         # except Exception as e:
         #     print("Error: %s in passage: %s" % (e, tgt_passage.ID))
 
+    labeled_f1 = calculate_f1(total_labeled[0], total_labeled[1], total_labeled[2])
+    unlabeled_f1 = calculate_f1(total_unlabeled[0], total_unlabeled[1], total_unlabeled[2])
+
+    return labeled_f1, unlabeled_f1
+
+
+def calculate_f1(total_matches, total_guessed, total_ref):
     # calculate micro f1
     p = 1.0 * total_matches / total_guessed
     r = 1.0 * total_matches / total_ref
@@ -273,7 +282,9 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
 
 def get_score(pred, tgt, testing, eval_type="unlabeled"):
 
-    if testing and True:
+    print_verbose = True
+
+    if testing and print_verbose:
         verbose = True
         units = True
     else:
@@ -281,6 +292,17 @@ def get_score(pred, tgt, testing, eval_type="unlabeled"):
         units = False
 
     score = evaluator(pred, tgt, eval_types=(eval_type), verbose=verbose, units=units)
+
+    unlabeled = get_results(score, "unlabeled")
+    if eval_type == "labeled":
+        labeled = get_results(score, "labeled")
+    else:
+        labeled = get_results(score, "unlabeled")
+
+    return labeled, unlabeled
+
+
+def get_results(score, eval_type):
     eval_score = score.evaluators[eval_type]
     primary, remote = eval_score.results.items()
     summary_stats = primary[1]
@@ -289,4 +311,3 @@ def get_score(pred, tgt, testing, eval_type="unlabeled"):
     num_ref = summary_stats.num_ref
 
     return num_matches, num_guessed, num_ref
-

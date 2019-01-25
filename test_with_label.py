@@ -11,7 +11,7 @@ dev_file_dir = "dev_proc.pt"
 vocab_dir = "vocab.pt"
 pos_vocab_dir = "pos_vocab.pt"
 
-checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_70_f1_31.21.pt"
+checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_31_f1_46.10.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -56,11 +56,13 @@ def main():
 
     model_r, a_model_r, label_model_r = load_test_model(checkpoint_path)
 
-    f1 = get_validation_accuracy(dev_text_tensor, model_r, a_model_r, label_model_r, dev_text,
-                                 dev_passages, dev_pos, pos_tensor, labels, label2index, eval_type="labeled",
-                                 testing=True)
+    labeled_f1, unlabeled_f1 = get_validation_accuracy(dev_text_tensor, model_r, a_model_r,
+                                                       label_model_r, dev_text, dev_passages,
+                                                       dev_pos, pos_tensor, labels, label2index,
+                                                       eval_type="labeled", testing=True)
 
     print("evaluated on %d passages" % len(dev_passages))
-    print("micro F1: %.4f " % f1)
+    print("labeled F1: %.4f " % labeled_f1)
+    print("unlabeled F1: %.4f " % unlabeled_f1)
 
 main()
