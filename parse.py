@@ -1546,8 +1546,10 @@ def loading_data(file_dir):
 def main():
     # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-    train_file = "sample_data/train"
-    dev_file = "sample_data/dev"
+    # train_file = "/home/dianyu/Desktop/P/UCCA/check_training"
+    # dev_file = "/home/dianyu/Desktop/P/UCCA/check_evaluate"
+    train_file = "/sample_data/train"
+    dev_file = "/sample_data_dev"
     #
     # # testing
     # train_file  = "sample_data/train/672004.xml"
