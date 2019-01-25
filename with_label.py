@@ -105,7 +105,13 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
              '[A', '[R', 'for]', '[E', 'their]', '[E', 'progressive]', '[C', 'views]', ']', ']'"""
 
             if linearized_target[i + 1][0] != "[":
-                i += 2
+                # in case during cleaning linearization, left something like "[H [A* Hepburn] ]"
+                if i > 0 and linearized_target[i - 1][0] == "[" and i + 2 < len(linearized_target) \
+                        and linearized_target[i + 2] == "]":
+                    stack.pop()
+                    i += 3
+                else:
+                    i += 2
             else:
                 remote_stack = [i]
                 # the remote edge may refer to a node with arbitrary length
@@ -127,6 +133,9 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
             current_index = index - 1
             left_border = stack.pop()
             attn_weight = a_model(output[current_index], output_2d, current_index)
+            # print(attn_weight.size())
+            # print(left_border)
+            # print()
             unit_loss += criterion(attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
             unit_loss_num += 1
 
@@ -223,16 +232,22 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
     best_score = 0
 
-    split_num = 3601
+    split_num = 3706
+    # split_num = 52
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
                              t_text, t_passages, t_pos))
 
     # random.shuffle(training_data)
 
-    # cross_validation
-    cr_training = training_data[:split_num]
+    # validation
+    # cr_training = training_data[:split_num]
+    # # sanity check
+    cr_training = training_data[:]
     cr_validaton = training_data[split_num:]
+
+    # debugging
+    cr_validaton = cr_training
 
     sent_ids, train_text_tensor, train_clean_linearized, \
     train_text, train_passages, train_pos = zip(*cr_training)
@@ -262,6 +277,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
         for sent_id, sent_tensor, clean_linearized, ori_sent, pos, pos_tensor in \
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos, train_pos_tensor):
+            print(sent_id)
             loss = train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model,
                                     a_model_optimizer, label_model, label_model_optimizer, criterion,
                                     ori_sent, pos, pos_tensor, label2index)
