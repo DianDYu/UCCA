@@ -14,7 +14,7 @@ random.seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S"]
+labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S", "G"]
 label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
@@ -223,7 +223,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
     best_score = 0
 
-    split_num = 7
+    split_num = 3601
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
                              t_text, t_passages, t_pos))
