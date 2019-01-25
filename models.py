@@ -139,7 +139,7 @@ class AModel(nn.Module):
         # output_2d: (seq_len, hidden_size)
         # output_trans: (hidden_size, index)
         # mm: (1, index)
-        output_trans = output_2d[:index].transpose(0, 1)
+        output_trans = output_2d[:index + 1].transpose(0, 1)
         p_output_i = F.relu(self.linear(output_i))
         p_output_trans = F.relu(self.linear(output_trans))
         mm = torch.mm(p_output_i, p_output_trans)
@@ -150,7 +150,7 @@ class AModel(nn.Module):
 class LabelModel(nn.Module):
     def __init__(self):
         super(LabelModel, self).__init__()
-        self.lables = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T"]
+        self.labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T"]
         self.label_size = len(self.labels)
 
         self.linear = nn.Linear(1000, 500)
