@@ -235,7 +235,8 @@ def get_left_most_id(node):
 
 
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text, val_passages,
-                            val_pos, val_pos_tensor, labels, label2index, eval_type="unlabeled"):
+                            val_pos, val_pos_tensor, labels, label2index, eval_type="unlabeled",
+                            testing=False):
     total_matches = 0
     total_guessed = 0
     total_ref = 0
@@ -250,7 +251,7 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index)
-        matches, guessed, refs = get_score(pred_passage, tgt_passage, eval_type)
+        matches, guessed, refs = get_score(pred_passage, tgt_passage, testing, eval_type)
         total_matches += matches
         total_guessed += guessed
         total_ref += refs
@@ -270,9 +271,16 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
     return f1
 
 
-def get_score(pred, tgt, eval_type="unlabeled"):
+def get_score(pred, tgt, testing, eval_type="unlabeled"):
 
-    score = evaluator(pred, tgt, eval_types=(eval_type))
+    if testing and True:
+        verbose = True
+        units = True
+    else:
+        verbose = False
+        units = False
+
+    score = evaluator(pred, tgt, eval_types=(eval_type), verbose=verbose, units=units)
     eval_score = score.evaluators[eval_type]
     primary, remote = eval_score.results.items()
     summary_stats = primary[1]

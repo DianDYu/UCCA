@@ -57,7 +57,8 @@ def main():
     model_r, a_model_r, label_model_r = load_test_model(checkpoint_path)
 
     f1 = get_validation_accuracy(dev_text_tensor, model_r, a_model_r, label_model_r, dev_text,
-                                 dev_passages, dev_pos, pos_tensor, labels, label2index, eval_type="labeled")
+                                 dev_passages, dev_pos, pos_tensor, labels, label2index, eval_type="labeled",
+                                 testing=True)
 
     print("evaluated on %d passages" % len(dev_passages))
     print("micro F1: %.4f " % f1)
