@@ -7,15 +7,21 @@ from torch import optim
 
 from models import RNNModel, AModel, LabelModel
 from io_file import get_pos_tensor
+from evaluate_with_label import get_validation_accuracy
 
 torch.manual_seed(1)
 random.seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S"]
+label2index = {}
+for label in labels:
+    label2index[label] = len(label2index)
+
 
 def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model, a_model_optimizer,
-                     label_model, label_model_optimizer, criterion, ori_sent, pos, pos_tensor):
+                     label_model, label_model_optimizer, criterion, ori_sent, pos, pos_tensor, label2index):
 
     model_optimizer.zero_grad()
     a_model_optimizer.zero_grad()
@@ -39,6 +45,8 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
     # output_i = output[i]
 
     linearized_target = clean_linearized
+
+    # print(linearized_target)
 
     index = 0
     stack = []
@@ -83,9 +91,9 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
                 attn_weight = a_model(output[index], output_2d, index)
                 unit_loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
                 unit_loss_num += 1
+            new_node_embedding.append(output[index])
             index += 1
             stack.pop()
-            new_node_embedding.append(output[index])
 
         # remote: ignore for now
         elif token[0] == "[" and token[-1] == "*":
@@ -123,17 +131,22 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
             unit_loss_num += 1
 
             children_enc_label = []
-            for ind, label in index_label.pop():
+
+            while True:
+                ind, label = index_label.pop()
+                if label == "X":
+                    continue
                 enc = new_node_embedding.pop()
                 children_enc_label.append((enc, label))
                 if ind == left_border:
                     break
             new_node_embedding.append(output[current_index] - output[left_border])
 
-            parent_enc = 0
+            parent_enc = new_node_embedding[-1]
             for child_enc, child_label in children_enc_label:
                 label_weight = label_model(parent_enc, child_enc)
-                label_loss += criterion(label_weight, child_label)
+                label_loss += criterion(label_weight,
+                                        torch.tensor([label2index[child_label]], dtype=torch.long, device=device))
                 label_loss_num += 1
 
             for r in range(1, max_recur + 1):
@@ -149,17 +162,20 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
 
                         # label prediction
                         children_enc_label = []
-                        for ind, label in index_label.pop():
+                        while True:
+                            ind, label = index_label.pop()
                             enc = new_node_embedding.pop()
                             children_enc_label.append((enc, label))
                             if ind == left_border:
                                 break
                         new_node_embedding.append(output[current_index] - output[left_border])
 
-                        parent_enc = 0
+                        parent_enc = new_node_embedding[-1]
                         for child_enc, child_label in children_enc_label:
                             label_weight = label_model(parent_enc, child_enc)
-                            label_loss += criterion(label_weight, child_label)
+                            label_loss += criterion(label_weight,
+                                                    torch.tensor([label2index[child_label]],
+                                                                 dtype=torch.long, device=device))
                             label_loss_num += 1
 
                         i += 1
@@ -176,8 +192,10 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
     word_stack = [ori_sent[i] for i in stack]
     assert len(stack) == 0, "stack is not empty, left %s" % word_stack
 
-    unit_loss.backward()
-    label_loss.backward()
+    # unit_loss.backward()
+    # label_loss.backward()
+    total_loss = unit_loss + label_loss
+    total_loss.backward()
 
     # gradient clipping
     torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
@@ -191,8 +209,6 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
     return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
 
 
-# def evaluate_with_label():
-#     pass
 
 
 def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages, pos_vocab):
@@ -250,7 +266,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos, train_pos_tensor):
             loss = train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model,
                                     a_model_optimizer, label_model, label_model_optimizer, criterion,
-                                    ori_sent, pos, pos_tensor)
+                                    ori_sent, pos, pos_tensor, label2index)
             total_loss += loss
             num += 1
             if num % 1000 == 0:
@@ -264,12 +280,22 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
         a_model.eval()
         label_model.eval()
 
-        # validation_acc = get_validation_accuracy(val_text_tensor, model, a_model, label_model,, val_text, val_passages,
-        #                                          val_pos, val_pos_tensor)
-        # print("validation accuracy (F1): %.4f" % validation_acc)
-        # print()
+        validation_acc = get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text, val_passages,
+                                                 val_pos, val_pos_tensor, labels, label2index, eval_type="labeled")
+        print("validation accuracy (F1): %.4f" % validation_acc)
+        print()
 
-        # if validation_acc > best_score:
-        #     best_score = validation_acc
-        #     save_test_model(model, attn, n_words, pos_vocab.n_words, epoch, validation_acc)
-        #
+        if validation_acc > best_score:
+            best_score = validation_acc
+            save_test_model(model, a_model, label_model, n_words, pos_vocab.n_words, epoch, validation_acc)
+
+
+def save_test_model(model_e, a_model_e, label_model_e, n_words, pos_n_words, epoch, f1):
+    checkpoint = {
+        'model': model_e.state_dict(),
+        'a_model': a_model_e.state_dict(),
+        'label_model': label_model_e.state_dict(),
+        'vocab_size': n_words,
+        'pos_vocab_size': pos_n_words
+    }
+    torch.save(checkpoint, "models/epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
