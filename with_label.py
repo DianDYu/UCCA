@@ -209,8 +209,6 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
     return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
 
 
-
-
 def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_ids, t_pos, t_passages, pos_vocab):
     n_epoch = 300
     criterion = nn.NLLLoss()
@@ -225,7 +223,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
     best_score = 0
 
-    split_num = 7
+    split_num = 52
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
                              t_text, t_passages, t_pos))
