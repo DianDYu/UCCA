@@ -11,9 +11,6 @@ from torch import optim
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-torch.manual_seed(1)
-random.seed(1)
-
 from ucca import diffutil, ioutil, textutil, layer0, layer1
 from ucca.evaluation import LABELED, UNLABELED, EVAL_TYPES, evaluate as evaluate_ucca
 from ucca.normalization import normalize
@@ -24,8 +21,12 @@ from new_evaluate import n_evaluate
 from match_pretrained_embedding import match_embedding
 from with_label import new_trainIters
 
+torch.manual_seed(1)
+random.seed(1)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cpu"
+
 
 class Vocab:
     def __init__(self):
@@ -641,6 +642,7 @@ def find_ellipsis_index_in_linearized(linearized, ellipsis_phrase, start_index):
 
         return [new_open_boundry, new_close_boundary]
 
+
 def find_first_before(linearized, index, end, pos):
     """
     find the index of the first pattern before index
@@ -658,7 +660,6 @@ def find_first_before(linearized, index, end, pos):
             if linearized[index][-1] == "]" and linearized[index][0] != "[":
                 return index
         index -= 1
-
 
 
 def find_next_n_words_in_ori(ori_sent, next_words_after_ellipsis, ori_sent_index):
@@ -1619,7 +1620,7 @@ def main():
         #            train_text, train_ids, train_pos, train_passages, pos_vocab)
         new_trainIters(vocab.n_words, train_text_tensor, train_clean_linearized,
                        train_text, train_ids, train_pos, train_passages, pos_vocab)
-        
+
     # else:
     #     checkpoint_path = "large_epoch_300.pt"
     #     model_r, attn_r = load_test_model(checkpoint_path)
