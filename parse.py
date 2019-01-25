@@ -1346,7 +1346,8 @@ def get_pos_tensor(vocab, pos):
     return [tensorFromSentence(vocab, tags) for tags in pos]
 
 
-def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos, val_pos_tensor):
+def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages, val_pos, val_pos_tensor,
+                            eval_types="unlabeled"):
     total_matches = 0
     total_guessed = 0
     total_ref = 0
@@ -1361,7 +1362,7 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
         try:
             with torch.no_grad():
                 pred_passage = n_evaluate(sent_tensor, model, attn, ori_sent, tgt_passage, pos, pos_tensor)
-            matches, guessed, refs = get_score(pred_passage, tgt_passage)
+            matches, guessed, refs = get_score(pred_passage, tgt_passage, eval_types)
             total_matches += matches
             total_guessed += guessed
             total_ref += refs
@@ -1381,10 +1382,10 @@ def get_validation_accuracy(val_text_tensor, model, attn, val_text, val_passages
     return f1
 
 
-def get_score(pred, tgt):
+def get_score(pred, tgt, eval_types="unlabeled"):
 
-    score = evaluator(pred, tgt, eval_types=("unlabeled"))
-    unlabeled_score = score.evaluators["unlabeled"]
+    score = evaluator(pred, tgt, eval_types=(eval_types))
+    unlabeled_score = score.evaluators["eval_types"]
     primary, remote = unlabeled_score.results.items()
     summary_stats = primary[1]
     num_matches = summary_stats.num_matches
