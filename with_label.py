@@ -15,7 +15,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model, a_model_optimizer,
-                     label_model, label_model_optimizer, criterion, ori_sent, pos_tensor):
+                     label_model, label_model_optimizer, criterion, ori_sent, pos, pos_tensor):
 
     model_optimizer.zero_grad()
     a_model_optimizer.zero_grad()
@@ -173,22 +173,22 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
 
         i += 1
 
-        word_stack = [ori_sent[i] for i in stack]
-        assert len(stack) == 0, "stack is not empty, left %s" % word_stack
+    word_stack = [ori_sent[i] for i in stack]
+    assert len(stack) == 0, "stack is not empty, left %s" % word_stack
 
-        unit_loss.backward()
-        label_loss.backward()
+    unit_loss.backward()
+    label_loss.backward()
 
-        # gradient clipping
-        torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
-        torch.nn.utils.clip_grad_norm_(parameters=a_model.parameters(), max_norm=max_grad_norm)
-        torch.nn.utils.clip_grad_norm_(parameters=label_model.parameters(), max_norm=max_grad_norm)
+    # gradient clipping
+    torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
+    torch.nn.utils.clip_grad_norm_(parameters=a_model.parameters(), max_norm=max_grad_norm)
+    torch.nn.utils.clip_grad_norm_(parameters=label_model.parameters(), max_norm=max_grad_norm)
 
-        model_optimizer.step()
-        a_model_optimizer.step()
-        label_model_optimizer.step()
+    model_optimizer.step()
+    a_model_optimizer.step()
+    label_model_optimizer.step()
 
-        return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
+    return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
 
 
 # def evaluate_with_label():
@@ -213,7 +213,8 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
                              t_text, t_passages, t_pos))
-    random.shuffle(training_data)
+
+    # random.shuffle(training_data)
 
     # cross_validation
     cr_training = training_data[:split_num]
@@ -237,7 +238,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
         training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized,
                                  train_text, train_passages, train_pos, train_pos_tensor))
-        random.shuffle(training_data)
+        # random.shuffle(training_data)
         sent_ids, train_text_tensor, train_clean_linearized, \
             train_text, train_passages, train_pos, train_pos_tensor = zip(*training_data)
 
