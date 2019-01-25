@@ -1548,8 +1548,8 @@ def main():
     # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
     # train_file = "/home/dianyu/Desktop/P/UCCA/check_training"
     # dev_file = "/home/dianyu/Desktop/P/UCCA/check_evaluate"
-    train_file = "/sample_data/train"
-    dev_file = "/sample_data_dev"
+    train_file = "sample_data/train"
+    dev_file = "sample_data/dev"
     #
     # # testing
     # train_file  = "sample_data/train/672004.xml"
