@@ -51,6 +51,7 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
     index = 0
     stack = []
     new_node_embedding = []
+    new_node_embedding_ck = []
     index_label = []
     i = 0
 
@@ -92,6 +93,7 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
                 unit_loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
                 unit_loss_num += 1
             new_node_embedding.append(output[index])
+            new_node_embedding_ck.append((index, index))
             index += 1
             stack.pop()
 
@@ -146,12 +148,16 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
                 if label == "X":
                     continue
                 enc = new_node_embedding.pop()
+                enc_ck = new_node_embedding_ck.pop()
                 children_enc_label.append((enc, label))
                 if ind == left_border:
                     break
             new_node_embedding.append(output[current_index] - output[left_border])
+            new_node_embedding_ck.append((left_border, current_index))
 
             parent_enc = new_node_embedding[-1]
+            parent_enc_ck = new_node_embedding_ck[-1]
+
             for child_enc, child_label in children_enc_label:
                 label_weight = label_model(parent_enc, child_enc)
                 label_loss += criterion(label_weight,
@@ -174,12 +180,16 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
                         while True:
                             ind, label = index_label.pop()
                             enc = new_node_embedding.pop()
+                            enc_ck = new_node_embedding_ck.pop()
                             children_enc_label.append((enc, label))
                             if ind == left_border:
                                 break
                         new_node_embedding.append(output[current_index] - output[left_border])
+                        new_node_embedding_ck.append((left_border, current_index))
 
                         parent_enc = new_node_embedding[-1]
+                        parent_enc_ck = new_node_embedding_ck[-1]
+
                         for child_enc, child_label in children_enc_label:
                             label_weight = label_model(parent_enc, child_enc)
                             label_loss += criterion(label_weight,
@@ -197,6 +207,19 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
                     break
 
         i += 1
+
+        # take care of issue without a top node for label prediction during training
+        # similar to not having the head node 1.1 during inference
+        if i == len(linearized_target):
+            if len(new_node_embedding) > 0:
+                assert len(new_node_embedding) == len(index_label), "# labels and # nodes in l1 not equal"
+                top_head_node_embedding = output[-1] - output[0]
+                for head_node_embedding, (head2idx, head2label) in zip(new_node_embedding, index_label):
+                    head2label_weight = label_model(top_head_node_embedding, head_node_embedding)
+                    label_loss += criterion(head2label_weight,
+                                            torch.tensor([label2index[head2label]],
+                                                         dtype=torch.long, device=device))
+                    label_loss_num += 1
 
     word_stack = [ori_sent[i] for i in stack]
     assert len(stack) == 0, "stack is not empty, left %s" % word_stack
@@ -232,7 +255,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
     best_score = 0
 
-    split_num = 3706
+    split_num = 3601
     # split_num = 52
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
@@ -244,7 +267,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
     # cr_training = training_data[:split_num]
     # # sanity check
     cr_training = training_data[:]
-    cr_validaton = training_data[split_num:]
+    # cr_validaton = training_data[split_num:]
 
     # debugging
     cr_validaton = cr_training
@@ -277,7 +300,10 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
         for sent_id, sent_tensor, clean_linearized, ori_sent, pos, pos_tensor in \
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos, train_pos_tensor):
-            print(sent_id)
+
+            # debugging
+            # print(sent_id)
+
             loss = train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model,
                                     a_model_optimizer, label_model, label_model_optimizer, criterion,
                                     ori_sent, pos, pos_tensor, label2index)
