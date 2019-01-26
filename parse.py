@@ -1546,10 +1546,12 @@ def loading_data(file_dir):
 def main():
     # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-    # train_file = "/home/dianyu/Desktop/P/UCCA/check_training"
-    # dev_file = "/home/dianyu/Desktop/P/UCCA/check_evaluate"
-    train_file = "sample_data/train"
-    dev_file = "sample_data/dev"
+    # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/638002.xml"
+    # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/638002.xml"
+    train_file = "check_training/104001.xml"
+    dev_file = "check_evaluate/000000.xml"
+    # train_file = "sample_data/train"
+    # dev_file = "sample_data/dev"
     #
     # # testing
     # train_file  = "sample_data/train/672004.xml"
@@ -1574,8 +1576,8 @@ def main():
     # # sys.exit()
     #
 
-
     reading_data = True
+    # reading_data = False
 
     train_file_dir = "train_proc.pt"
     dev_file_dir = "dev_proc.pt"
@@ -1586,6 +1588,7 @@ def main():
     if reading_data:
         train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
         ignore_list = error_list + too_long_list
+        # ignore_list = error_list
         preprocessing_data(ignore_list, train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
     #
     """loading data"""
