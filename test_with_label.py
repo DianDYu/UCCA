@@ -11,7 +11,7 @@ dev_file_dir = "dev_proc.pt"
 vocab_dir = "vocab.pt"
 pos_vocab_dir = "pos_vocab.pt"
 
-checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_31_f1_46.10.pt"
+checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_91_f1_30.77.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

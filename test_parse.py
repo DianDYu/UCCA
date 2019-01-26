@@ -5,7 +5,7 @@ dev_file_dir = "dev_proc.pt"
 vocab_dir = "vocab.pt"
 pos_vocab_dir = "pos_vocab.pt"
 
-checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_216_f1_73.79.pt"
+checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_47_f1_80.71.pt"
 
 
 def main():
