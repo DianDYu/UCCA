@@ -46,7 +46,7 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
 
     linearized_target = clean_linearized
 
-    # print(linearized_target)
+    print(linearized_target)
 
     index = 0
     stack = []
@@ -212,7 +212,12 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
         # similar to not having the head node 1.1 during inference
         if i == len(linearized_target):
             if len(new_node_embedding) > 0:
-                assert len(new_node_embedding) == len(index_label), "# labels and # nodes in l1 not equal"
+                assert len(new_node_embedding) == len(index_label), "# labels and # nodes in l1 not equal\n" \
+                                                                    "index_label: %s\n" \
+                                                                    "new_node_embedding %s\n" \
+                                                                    "ori_sent: %s" % (index_label,
+                                                                                      new_node_embedding_ck,
+                                                                                      ori_sent)
                 top_head_node_embedding = output[-1] - output[0]
                 for head_node_embedding, (head2idx, head2label) in zip(new_node_embedding, index_label):
                     head2label_weight = label_model(top_head_node_embedding, head_node_embedding)
@@ -302,7 +307,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos, train_pos_tensor):
 
             # debugging
-            # print(sent_id)
+            print(sent_id)
 
             loss = train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model,
                                     a_model_optimizer, label_model, label_model_optimizer, criterion,
