@@ -156,7 +156,7 @@ class AModel(nn.Module):
     def forward(self, output_i, output_2d, index):
         # output_i: (1, hidden_size)
         # output_2d: (seq_len, hidden_size)
-        # output_trans: (hidden_size, index)
+        # output_trans: (hidden_size, index+1)
         # mm: (1, index)
         p_output_i = F.relu(self.linear(output_i))
         p_output_trans = F.relu(self.linear(output_2d[:index + 1])).transpose(0, 1)
