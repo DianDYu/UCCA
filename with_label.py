@@ -349,8 +349,9 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
         a_model.eval()
         label_model.eval()
 
-        labeled_f1, unlabeled_f1 = get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text, val_passages,
-                                                 val_pos, val_pos_tensor, labels, label2index, eval_type="labeled")
+        labeled_f1, unlabeled_f1 = get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text,
+                                                           val_passages, val_pos, val_pos_tensor, labels, label2index,
+                                                           eval_type="labeled")
         print("validation f1 labeled: %.4f" % labeled_f1)
         print("validation f1 unlabeled: %.4f" % unlabeled_f1)
         print()
