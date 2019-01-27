@@ -11,7 +11,7 @@ dev_file_dir = "dev_proc.pt"
 vocab_dir = "vocab.pt"
 pos_vocab_dir = "pos_vocab.pt"
 
-checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_91_f1_30.77.pt"
+checkpoint_path = "models/epoch_36_f1_98.04.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -33,7 +33,7 @@ def load_test_model(checkpoint_path):
     print("Loading model parameters")
     model = RNNModel(vocab_size, pos_vocab_size, use_pretrain=False)
     a_model = AModel()
-    label_model = LabelModel()
+    label_model = LabelModel(labels)
     model.load_state_dict(checkpoint['model'])
     a_model.load_state_dict(checkpoint['a_model'])
     label_model.load_state_dict(checkpoint['label_model'])
@@ -65,4 +65,6 @@ def main():
     print("labeled F1: %.4f " % labeled_f1)
     print("unlabeled F1: %.4f " % unlabeled_f1)
 
-main()
+
+if __name__ == "__main__":
+    main()

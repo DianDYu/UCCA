@@ -14,13 +14,17 @@ terminal_tag = "Terminal"
 def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_passage, pos,
                         pos_tensor, labels, label2index):
     """
-    predict a passage
+
     :param sent_tensor:
     :param model:
-    :param attn:
+    :param a_model:
+    :param label_model:
     :param ori_sent:
     :param dev_passage:
     :param pos:
+    :param pos_tensor:
+    :param labels:
+    :param label2index:
     :return:
     """
 
@@ -87,8 +91,6 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                         continue
                     elif pos[i] != "PROPN":
                         break
-
-
 
             # combine the nodes in combine_list to one node in l1
             l1_position = len(l1._all) + 1
@@ -203,6 +205,8 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
             pred_label = labels[label_top_k_ind]
             head_node.add(pred_label, node)
 
+    # ioutil.write_passage(passage)
+
     return passage
 
 
@@ -241,7 +245,6 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
 
     total_labeled = (total_matches_l, total_guessed_l, total_ref_l) = (0, 0, 0)
     total_unlabeled = (total_guessed_un, total_guessed_un, total_ref_un) = (0, 0, 0)
-
 
     top_10_to_writeout = 10
 
