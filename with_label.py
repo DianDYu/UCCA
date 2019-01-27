@@ -55,6 +55,8 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
     index_label = []
     i = 0
 
+    start_ner_idx = -1
+
     while i < len(linearized_target):
         token = linearized_target[i]
         ori_word = ori_sent[index] if index < len(ori_sent) else "<EOS>"
@@ -62,6 +64,7 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
         if token[0] == "[" and token[-1] != "*" and token[-1] != "]":
             # PROPN: pre-processed with [X label. During training, just ignore the loss
             if token == "[X" and linearized_target[i + 2] == "[X":
+                start_ner_idx = index
                 while True:
                     if linearized_target[i + 2] == "[X":
                         i += 2
@@ -92,8 +95,10 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
                 attn_weight = a_model(output[index], output_2d, index)
                 unit_loss += criterion(attn_weight, torch.tensor([index], dtype=torch.long, device=device))
                 unit_loss_num += 1
+
             new_node_embedding.append(output[index])
             new_node_embedding_ck.append((index, index))
+
             index += 1
             stack.pop()
 
@@ -134,35 +139,54 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
         elif token == "]":
             current_index = index - 1
             left_border = stack.pop()
-            attn_weight = a_model(output[current_index], output_2d, current_index)
-            # print(attn_weight.size())
-            # print(left_border)
-            # print()
-            unit_loss += criterion(attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
-            unit_loss_num += 1
 
-            children_enc_label = []
+            combining_ner = False
+            # calculating special loss for ners
+            if index_label[-1][1] == "X":
+                assert left_border == start_ner_idx, "left_border and start_ner_idx not the same"
+                combining_ner = True
+                """the loss will be calculated by the recursive call"""
+                # attn_weight = a_model(output[current_index] - output[start_ner_idx], output_2d, current_index)
+                # unit_loss += criterion(attn_weight, torch.tensor([current_index], dtype=torch.long, device=device))
+                # unit_loss_num += 1
+            else:
+                attn_weight = a_model(output[current_index], output_2d, current_index)
+                unit_loss += criterion(attn_weight, torch.tensor([left_border], dtype=torch.long, device=device))
+                unit_loss_num += 1
 
-            while True:
+            if combining_ner:
                 ind, label = index_label.pop()
-                if label == "X":
-                    continue
+                assert label == "X", "The first label popped from a NER should be X"
+                # pop last element of ner from node_embedding list
                 enc = new_node_embedding.pop()
                 enc_ck = new_node_embedding_ck.pop()
-                children_enc_label.append((enc, label))
-                if ind == left_border:
-                    break
-            new_node_embedding.append(output[current_index] - output[left_border])
-            new_node_embedding_ck.append((left_border, current_index))
 
-            parent_enc = new_node_embedding[-1]
-            parent_enc_ck = new_node_embedding_ck[-1]
+                assert index_label[-1][1] != "X", "after popping the X label, the next should be the label for the " \
+                                                  "combined ner"
+                new_node_embedding.append(output[current_index] - output[start_ner_idx])
+                new_node_embedding_ck.append((start_ner_idx, current_index))
 
-            for child_enc, child_label in children_enc_label:
-                label_weight = label_model(parent_enc, child_enc)
-                label_loss += criterion(label_weight,
-                                        torch.tensor([label2index[child_label]], dtype=torch.long, device=device))
-                label_loss_num += 1
+            else:
+                children_enc_label = []
+                while True:
+                    ind, label = index_label.pop()
+                    enc = new_node_embedding.pop()
+                    enc_ck = new_node_embedding_ck.pop()
+                    children_enc_label.append((enc, label))
+                    if ind == left_border:
+                        break
+
+                new_node_embedding.append(output[current_index] - output[left_border])
+                new_node_embedding_ck.append((left_border, current_index))
+
+                parent_enc = new_node_embedding[-1]
+                parent_enc_ck = new_node_embedding_ck[-1]
+
+                for child_enc, child_label in children_enc_label:
+                    label_weight = label_model(parent_enc, child_enc)
+                    label_loss += criterion(label_weight,
+                                            torch.tensor([label2index[child_label]], dtype=torch.long, device=device))
+                    label_loss_num += 1
 
             for r in range(1, max_recur + 1):
                 node_output = output[current_index] - output[left_border]
