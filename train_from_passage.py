@@ -260,9 +260,15 @@ def reorder_children(children):
 
     for child in children:
         edges = get_legit_edges(child)
-        while len(edges) > 0:
-            l_child = edges[0].child
-            edges = get_legit_edges(l_child)
+
+        # terminal node in l0, no children
+        if len(edges) == 0 and child.ID.split(".")[0] == "0":
+            l_child = child
+        else:
+            while len(edges) > 0:
+                l_child = edges[0].child
+                edges = get_legit_edges(l_child)
+            
         child2l0[int(l_child.ID.split(".")[1])] = child
 
     for id in sorted(child2l0.keys()):
