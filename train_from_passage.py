@@ -51,7 +51,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         else:
             if is_consecutive(t_node_i_in_l1):
                 # deal with proper nouns
-                right_most_ner = get_child_idx_in_l0(t_node_i_in_l1, "right")
+                right_most_ner = get_child_idx_in_l0(t_node_i_in_l1, "right", reorder=True)
                 output_i = output[right_most_ner] - output[i]
                 i = right_most_ner
                 node_encoding[t_node_i_in_l1] = output_i
@@ -69,9 +69,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
             primary_parent = parents[0]
 
         pp_children = get_legit_children(primary_parent)
+        reordered_pp_children = reorder_children(pp_children)
 
         # if rightmost children then there is a new node. do this recursively
-        if t_node_i_in_l1 != pp_children[-1]:
+        if t_node_i_in_l1 != reordered_pp_children[-1]:
             # attend to itself
             attn_weight = a_model(output_i, output_2d, i)
             unit_loss += criterion(attn_weight, torch.tensor([i], dtype=torch.long, device=device))
@@ -106,7 +107,9 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     break
 
                 grandparent_children = get_legit_children(primary_grandparent)
-                if primary_parent != grandparent_children[-1]:
+                reordered_grandparent_children = reorder_children(grandparent_children
+                                                                  )
+                if primary_parent != reordered_grandparent_children[-1]:
                     # attend to itself
                     attn_weight = a_model(node_encoding[primary_parent], output_2d, i)
                     unit_loss += criterion(attn_weight, torch.tensor([i], dtype=torch.long, device=device))
@@ -132,7 +135,18 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
 
 
-def get_child_idx_in_l0(node, direction="left", get_node=False):
+def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
+    if reorder:
+        assert direction == "right", "reorder for propn"
+        children = []
+        for child in node.children:
+            # in case for punctuation in propn
+            if len(child.outgoing) > 0:
+                child = get_child_idx_in_l0(child, get_node=True)
+            children.append(child)
+        children.sort(key=lambda x: x.ID)
+        return int(children[-1].ID.split(".")[1]) - 1
+
     edges = get_legit_edges(node)
     if direction == "left":
         left_most_child = edges[0].child
@@ -183,6 +197,11 @@ def get_legit_edges(node):
 
 def get_primary_parent(node):
     # check with 114005
+
+    # headnode
+    if len(node.parents) == 0:
+        return []
+
     for parent in node.parents:
         legit_edges = get_legit_edges(parent)
         for edge in legit_edges:
@@ -197,3 +216,21 @@ def get_legit_children(node):
     for edge in legit_edges:
         children.append(edge.child)
     return children
+
+
+def reorder_children(children):
+    child2l0 = {}
+    reordered = []
+
+    for child in children:
+        edges = get_legit_edges(child)
+        while len(edges) > 0:
+            l_child = edges[0].child
+            edges = get_legit_edges(l_child)
+        child2l0[int(l_child.ID.split(".")[1])] = child
+
+    for id in sorted(child2l0.keys()):
+        reordered.append(child2l0[id])
+
+    return reordered
+
