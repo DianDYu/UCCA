@@ -180,7 +180,7 @@ def is_consecutive(node):
         if len(child.outgoing) > 0:
             child = get_child_idx_in_l0(child, get_node=True)
         children.append(child)
-    children.sort(key=lambda x: x.ID)
+    children.sort(key=lambda x: int(x.ID.split(".")[1]))
 
     for child in children:
         child_id = int(child.ID.split(".")[1])
