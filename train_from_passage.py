@@ -148,7 +148,7 @@ def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
             if len(child.outgoing) > 0:
                 child = get_child_idx_in_l0(child, get_node=True)
             children.append(child)
-        children.sort(key=lambda x: x.ID)
+        children.sort(key=lambda x: int(x.ID.split(".")[1]))
         return int(children[-1].ID.split(".")[1]) - 1
 
     edges = get_legit_edges(node)
