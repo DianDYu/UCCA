@@ -117,6 +117,9 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 # label loss
                 for edge in get_legit_edges(primary_parent):
                     child = edge.child
+                    # implicit node
+                    if child.attrib.get("implicit"):
+                        continue
                     child_label = edge.tag
                     child_encoding = node_encoding[child]
                     label_weight = label_model(primary_parent_encoding, child_encoding)
@@ -174,6 +177,8 @@ def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
         return int(children[-1].ID.split(".")[1]) - 1
 
     edges = get_legit_edges(node)
+    children = [edge.child for edge in edges]
+    children = 
     if direction == "left":
         left_most_child = edges[0].child
         while len(left_most_child.children) > 0:
