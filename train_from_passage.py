@@ -79,6 +79,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
             unit_loss_num += 1
 
         else:
+            current_encoding = output_i
             while True:
                 # attend to a previous node
                 left_most_child_idx = get_child_idx_in_l0(primary_parent, "left")
@@ -87,7 +88,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 node_encoding[primary_parent] = primary_parent_encoding
 
                 # boundary loss
-                attn_weight = a_model(primary_parent_encoding, output_2d, i)
+                attn_weight = a_model(current_encoding, output_2d, i)
                 unit_loss += criterion(attn_weight, torch.tensor([left_most_child_idx], dtype=torch.long, device=device))
                 unit_loss_num += 1
 
@@ -100,6 +101,9 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     label_loss += criterion(label_weight,
                                             torch.tensor([label2index[child_label]], dtype=torch.long, device=device))
                     label_loss_num += 1
+
+                # for boundary loss
+                current_encoding = primary_parent_encoding
 
                 primary_grandparent = get_primary_parent(primary_parent)
                 # head node
