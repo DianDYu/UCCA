@@ -57,7 +57,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 # deal with proper nouns
                 right_most_ner = get_child_idx_in_l0(t_node_i_in_l1, "right")
                 output_i = output[right_most_ner] - output[i]
-                i = output_i
+                i = right_most_ner
+                node_encoding[t_node_i_in_l1] = output_i
             else:
                 """TODO: fix this"""
                 # deal with remote edges like "so ... that" in 105005
@@ -71,7 +72,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         else:
             primary_parent = parents[0]
 
-        pp_children = primary_parent.children
+        pp_children = get_legit_children(primary_parent)
 
         # if rightmost children then there is a new node. do this recursively
         if t_node_i_in_l1 != pp_children[-1]:
@@ -94,7 +95,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 primary_parent_encoding = output_i - output[left_most_child_idx]
                 node_encoding[primary_parent] = primary_parent_encoding
 
-                for edge in primary_parent.outgoing:
+                for edge in get_legit_edges(primary_parent):
                     child = edge.child
                     child_label = edge.tag
                     child_encoding = node_encoding[child]
@@ -103,14 +104,16 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                             torch.tensor([label2index[child_label]], dtype=torch.long, device=device))
                     label_loss_num += 1
 
-                if primary_parent != primary_parent.parents[0].children[-1]:
+                primary_grandparent = get_primary_parent(primary_parent)
+                grandparent_children = get_legit_children(primary_grandparent)
+                if primary_parent != grandparent_children[-1]:
                     # attend to itself
                     attn_weight = a_model(node_encoding[primary_parent], output_2d, i)
                     unit_loss += criterion(attn_weight, torch.tensor([i], dtype=torch.long, device=device))
                     unit_loss_num += 1
                     break
                 else:
-                    primary_parent = primary_parent.parents[0]
+                    primary_parent = primary_grandparent
 
         i += 1
 
@@ -130,15 +133,18 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
 
 def get_child_idx_in_l0(node, direction="left"):
+    edges = get_legit_edges(node)
     if direction == "left":
-        left_most_child = node.children[0]
+        left_most_child = edges[0].child
         while len(left_most_child.children) > 0:
-            left_most_child = left_most_child.children[0]
+            child_edges = get_legit_edges(left_most_child)
+            left_most_child = child_edges[0].child
         return left_most_child.ID.split(".")[1] - 1
     else:
-        right_most_child = node.children[-1]
+        right_most_child = edges[-1].child
         while len(right_most_child.children) > 0:
-            right_most_child = right_most_child.children[-1]
+            child_edges = get_legit_edges(right_most_child)
+            right_most_child = child_edges[-1].child
         return right_most_child.ID.split(".")[1] - 1
 
 
@@ -154,7 +160,7 @@ def is_consecutive(node):
     return True
 
 
-def remove_edge(node):
+def get_legit_edges(node):
     legit_edges = []
     for edge in node.outgoing:
         if edge.attrib["remote"] or edge.attrib["implicit"]:
@@ -166,12 +172,16 @@ def remove_edge(node):
 def get_primary_parent(node):
     # check with 114005
     for parent in node.parents:
-        legit_edges = remove_edge(parent)
+        legit_edges = get_legit_edges(parent)
         for edge in legit_edges:
             if edge.child == node:
                 return parent
     return node.parents[0]
 
 
-def get_primary_edge(node):
-    pass
+def get_legit_children(node):
+    children = []
+    legit_edges = get_legit_edges(node)
+    for edge in legit_edges:
+        children.append(edge.child)
+    return children
