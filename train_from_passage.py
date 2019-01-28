@@ -88,7 +88,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
             primary_gp.add(gp_edge.tag, reordered_pp_children[0])
             train_passage._remove_node(primary_parent)
             l1._remove_node(primary_parent)
-            ioutil.write_passage(train_passage)
+            # ioutil.write_passage(train_passage)
+
+            # so it will be in the first condition
+            reordered_pp_children.append(0)
 
         # if rightmost children then there is a new node. do this recursively
         if t_node_i_in_l1 != reordered_pp_children[-1]:
