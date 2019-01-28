@@ -39,6 +39,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
     i = 0
 
+    parents = None
+
     node_encoding = {}
 
     while i < len(output):
@@ -47,13 +49,25 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         output_i = output[i]
         t_node_i = terminal_nodes[i]
         t_node_i_in_l1 = t_node_i.parents[0]
-        parents = t_node_i_in_l1.parents
 
-        node_encoding[t_node_i_in_l1] = output_i
+        if len(t_node_i_in_l1.children) == 1:
+            node_encoding[t_node_i_in_l1] = output_i
+        else:
+            if is_consecutive(t_node_i_in_l1):
+                # deal with proper nouns
+                right_most_ner = get_child_idx_in_l0(t_node_i_in_l1, "right")
+                output_i = output[right_most_ner] - output[i]
+                i = output_i
+            else:
+                """TODO: fix this"""
+                # deal with remote edges like "so ... that" in 105005
+                assert False, "sent %s cannot be processed for now" % str(train_passage.ID)
+
+        parents = t_node_i_in_l1.parents
 
         """TODO: take care of remote edges"""
         if len(parents) > 1:
-            primary_parent = parents[0]
+            primary_parent = get_primary_parent(t_node_i_in_l1)
         else:
             primary_parent = parents[0]
 
@@ -128,4 +142,36 @@ def get_child_idx_in_l0(node, direction="left"):
         return right_most_child.ID.split(".")[1] - 1
 
 
+def is_consecutive(node):
+    prev_id = None
+    for child in node.children:
+        # in case for punctuation in propn
+        child = get_child_idx_in_l0(child)
+        child_id = int(child.ID.split(".")[1])
+        if prev_id is not None and child_id != prev_id + 1:
+            return False
+        prev_id = child_id
+    return True
 
+
+def remove_edge(node):
+    legit_edges = []
+    for edge in node.outgoing:
+        if edge.attrib["remote"] or edge.attrib["implicit"]:
+            continue
+        legit_edges.append(edge)
+    return legit_edges
+
+
+def get_primary_parent(node):
+    # check with 114005
+    for parent in node.parents:
+        legit_edges = remove_edge(parent)
+        for edge in legit_edges:
+            if edge.child == node:
+                return parent
+    return node.parents[0]
+
+
+def get_primary_edge(node):
+    pass
