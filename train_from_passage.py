@@ -178,20 +178,23 @@ def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
 
     edges = get_legit_edges(node)
     children = [edge.child for edge in edges]
-    children = 
+    children = reorder_children(children)
+
     if direction == "left":
-        left_most_child = edges[0].child
+        left_most_child = children[0]
         while len(left_most_child.children) > 0:
             child_edges = get_legit_edges(left_most_child)
-            left_most_child = child_edges[0].child
+            grandchildren = [edge.child for edge in child_edges]
+            left_most_child = grandchildren[0]
         if get_node:
             return left_most_child
         return int(left_most_child.ID.split(".")[1]) - 1
     else:
-        right_most_child = edges[-1].child
+        right_most_child = children[-1]
         while len(right_most_child.children) > 0:
             child_edges = get_legit_edges(right_most_child)
-            right_most_child = child_edges[-1].child
+            grandchildren = [edge.child for edge in child_edges]
+            right_most_child = grandchildren[-1]
         if get_node:
             return right_most_child
         return int(right_most_child.ID.split(".")[1]) - 1
