@@ -46,7 +46,7 @@ def train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_mo
 
     linearized_target = clean_linearized
 
-    print(linearized_target)
+    # print(linearized_target)
 
     index = 0
     stack = []
@@ -290,16 +290,16 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
     training_data = list(zip(t_sent_ids, t_text_tensor, t_clean_linearized,
                              t_text, t_passages, t_pos))
 
-    # random.shuffle(training_data)
+    random.shuffle(training_data)
 
     # validation
-    # cr_training = training_data[:split_num]
+    cr_training = training_data[:split_num]
     # # sanity check
-    cr_training = training_data[:]
-    # cr_validaton = training_data[split_num:]
+    # cr_training = training_data[:]
+    cr_validaton = training_data[split_num:]
 
     # debugging
-    cr_validaton = cr_training
+    # cr_validaton = cr_training
 
     sent_ids, train_text_tensor, train_clean_linearized, \
     train_text, train_passages, train_pos = zip(*cr_training)
@@ -319,7 +319,7 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
         training_data = list(zip(sent_ids, train_text_tensor, train_clean_linearized,
                                  train_text, train_passages, train_pos, train_pos_tensor))
-        # random.shuffle(training_data)
+        random.shuffle(training_data)
         sent_ids, train_text_tensor, train_clean_linearized, \
             train_text, train_passages, train_pos, train_pos_tensor = zip(*training_data)
 
@@ -331,13 +331,16 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
                 zip(sent_ids, train_text_tensor, train_clean_linearized, train_text, train_pos, train_pos_tensor):
 
             # debugging
-            print(sent_id)
+            # print(sent_id)
+            try:
+                loss = train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model,
+                                        a_model_optimizer, label_model, label_model_optimizer, criterion,
+                                        ori_sent, pos, pos_tensor, label2index)
+                total_loss += loss
+                num += 1
+            except Exception as e:
+                print("sent: %s has training error: %s" % (str(sent_id), e))
 
-            loss = train_with_label(sent_tensor, clean_linearized, model, model_optimizer, a_model,
-                                    a_model_optimizer, label_model, label_model_optimizer, criterion,
-                                    ori_sent, pos, pos_tensor, label2index)
-            total_loss += loss
-            num += 1
             if num % 1000 == 0:
                 print("%d finished" % num)
 
@@ -358,6 +361,10 @@ def new_trainIters(n_words, t_text_tensor, t_clean_linearized, t_text, t_sent_id
 
         if labeled_f1 > best_score:
             best_score = labeled_f1
+            save_test_model(model, a_model, label_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
+
+        # save last model
+        if epoch == n_epoch:
             save_test_model(model, a_model, label_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
 
 

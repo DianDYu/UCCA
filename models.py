@@ -48,7 +48,7 @@ class RNNModel(nn.Module):
         self.max_length = 70
 
         self.pretrained_vectors = use_pretrain
-        self.pretrained_vectors = False
+        # self.pretrained_vectors = False
 
         self.add_idx = False
 

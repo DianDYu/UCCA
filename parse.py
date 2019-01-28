@@ -1544,12 +1544,12 @@ def loading_data(file_dir):
 
 
 def main():
-    # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
-    # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
+    train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+    dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
     # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/638002.xml"
     # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/638002.xml"
-    train_file = "check_training/000000.xml"
-    dev_file = "check_evaluate/000000.xml"
+    # train_file = "check_training/672004.xml"
+    # dev_file = "check_evaluate/672004.xml"
     # train_file = "sample_data/train"
     # dev_file = "sample_data/dev"
     #
