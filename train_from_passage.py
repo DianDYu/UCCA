@@ -3,7 +3,7 @@ import random
 import torch
 
 from io_file import label2index
-
+from ucca import ioutil
 
 torch.manual_seed(1)
 random.seed(1)
@@ -33,6 +33,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     output_2d = output.squeeze(1)
 
     l0 = train_passage.layer("0")
+    l1 = train_passage.layer("1")
     terminal_nodes = l0.all
 
     i = 0
@@ -46,7 +47,9 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         t_node_i = terminal_nodes[i]
         t_node_i_in_l1 = t_node_i.parents[0]
 
-        if len(t_node_i_in_l1.children) == 1:
+        t_node_i_in_l1_legit_children = get_legit_children(t_node_i_in_l1)
+
+        if len(t_node_i_in_l1_legit_children) == 1:
             node_encoding[t_node_i_in_l1] = output_i
         else:
             if is_consecutive(t_node_i_in_l1):
@@ -70,6 +73,22 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
         pp_children = get_legit_children(primary_parent)
         reordered_pp_children = reorder_children(pp_children)
+
+        # ck_t_node_i_in_l1_id = t_node_i_in_l1.ID
+        # cl_reordered_pp_children = reordered_pp_children[-1]
+        # ck_tf = t_node_i_in_l1 == cl_reordered_pp_children
+
+        # if only one child left after cleaning remote and implicit
+        if len(reordered_pp_children) == 1:
+            # remove the intermeddite node
+            primary_parent.remove(reordered_pp_children[0])
+            primary_gp = get_primary_parent(primary_parent)
+            gp_edge = [edge for edge in primary_gp.outgoing if edge.child == primary_parent][0]
+            primary_gp.remove(primary_parent)
+            primary_gp.add(gp_edge.tag, reordered_pp_children[0])
+            train_passage._remove_node(primary_parent)
+            l1._remove_node(primary_parent)
+            ioutil.write_passage(train_passage)
 
         # if rightmost children then there is a new node. do this recursively
         if t_node_i_in_l1 != reordered_pp_children[-1]:
@@ -219,12 +238,14 @@ def get_legit_children(node):
     legit_edges = get_legit_edges(node)
     for edge in legit_edges:
         children.append(edge.child)
-    return children
+    return clean_implicit_nodes(children)
 
 
 def reorder_children(children):
     child2l0 = {}
     reordered = []
+
+    children = clean_implicit_nodes(children)
 
     for child in children:
         edges = get_legit_edges(child)
@@ -237,4 +258,13 @@ def reorder_children(children):
         reordered.append(child2l0[id])
 
     return reordered
+
+
+def clean_implicit_nodes(nodes):
+    cleaned = []
+    for node in nodes:
+        if node.attrib.get("implicit"):
+            continue
+        cleaned.append(node)
+    return cleaned
 
