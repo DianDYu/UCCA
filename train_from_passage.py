@@ -2,15 +2,13 @@ import random
 
 import torch
 
+from io_file import label2index
+
+
 torch.manual_seed(1)
 random.seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S", "G"]
-label2index = {}
-for label in labels:
-    label2index[label] = len(label2index)
 
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
@@ -34,7 +32,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     # assume batch_size = 1
     output_2d = output.squeeze(1)
 
-    l0 = train_passage.layers("0")
+    l0 = train_passage.layer("0")
     terminal_nodes = l0.all
 
     i = 0
@@ -106,7 +104,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 # head node
                 if len(primary_grandparent) == 0:
                     break
-                    
+
                 grandparent_children = get_legit_children(primary_grandparent)
                 if primary_parent != grandparent_children[-1]:
                     # attend to itself
@@ -134,27 +132,39 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
 
 
-def get_child_idx_in_l0(node, direction="left"):
+def get_child_idx_in_l0(node, direction="left", get_node=False):
     edges = get_legit_edges(node)
     if direction == "left":
         left_most_child = edges[0].child
         while len(left_most_child.children) > 0:
             child_edges = get_legit_edges(left_most_child)
             left_most_child = child_edges[0].child
-        return left_most_child.ID.split(".")[1] - 1
+        if get_node:
+            return left_most_child
+        return int(left_most_child.ID.split(".")[1]) - 1
     else:
         right_most_child = edges[-1].child
         while len(right_most_child.children) > 0:
             child_edges = get_legit_edges(right_most_child)
             right_most_child = child_edges[-1].child
-        return right_most_child.ID.split(".")[1] - 1
+        if get_node:
+            return right_most_child
+        return int(right_most_child.ID.split(".")[1]) - 1
 
 
 def is_consecutive(node):
     prev_id = None
+
+    # reorder child
+    children = []
     for child in node.children:
         # in case for punctuation in propn
-        child = get_child_idx_in_l0(child)
+        if len(child.outgoing) > 0:
+            child = get_child_idx_in_l0(child, get_node=True)
+        children.append(child)
+    children.sort(key=lambda x: x.ID)
+
+    for child in children:
         child_id = int(child.ID.split(".")[1])
         if prev_id is not None and child_id != prev_id + 1:
             return False
@@ -165,7 +175,7 @@ def is_consecutive(node):
 def get_legit_edges(node):
     legit_edges = []
     for edge in node.outgoing:
-        if edge.attrib["remote"] or edge.attrib["implicit"]:
+        if edge.attrib.get("remote") or edge.attrib.get("implicit"):
             continue
         legit_edges.append(edge)
     return legit_edges
