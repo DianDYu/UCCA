@@ -39,6 +39,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
     l1_node_list = []
     l0_node_list = []
     node_encoding = {}
+    ck_node_encoding = {}
 
     output, hidden = model(sent_tensor, pos_tensor)
 
@@ -100,6 +101,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                 terminal_node_in_l1.add(terminal_tag, terminal_node)
             l1_node_list.append(terminal_node_in_l1)
             node_encoding[terminal_node_in_l1] = output[i - 1] - output[left_most_idx]
+            ck_node_encoding[terminal_node_in_l1] = [left_most_idx, i - 1]
 
             i -= 1
 
@@ -116,6 +118,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
             terminal_node_in_l1.add(terminal_tag, terminal_node)
             l1_node_list.append(terminal_node_in_l1)
             node_encoding[terminal_node_in_l1] = output[i]
+            ck_node_encoding[terminal_node_in_l1] = [i, i]
 
             output_i = output[i]
             attn_i = a_model(output_i, output_2d, i)
@@ -136,7 +139,8 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                 new_node = FoundationalNode(new_node_ID, passage, tag=layer1.NodeTags.Foundational)
                 """TODO: check this. not sure if it should be the left most child or top_k_ind"""
                 debug_left_most_id = get_left_most_id(parent_node)
-                new_node_enc = output[i] - output[get_left_most_id(parent_node)]
+                new_node_enc = output[i] - output[debug_left_most_id]
+                # new_node_enc = output[i] - output[get_left_most_id(parent_node)]
                 children = []
                 while True:
                     item_node = l1_node_list.pop()
@@ -146,12 +150,14 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                     if item_node.ID == parent_node.ID:
                         for child in children:
                             child_enc = node_encoding[child]
+                            ck_child_enc = ck_node_encoding[child]
                             label_weight = label_model(new_node_enc, child_enc)
                             label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
                             pred_label = labels[label_top_k_ind]
                             new_node.add(pred_label, child)
                         l1_node_list.append(new_node)
                         node_encoding[new_node] = new_node_enc
+                        ck_node_encoding[new_node] = [debug_left_most_id, i]
                         break
                 left_most_idx = get_left_most_id(new_node)
 
@@ -175,7 +181,8 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                 new_node = FoundationalNode(new_node_ID, passage, tag=layer1.NodeTags.Foundational)
                 """TODO: same as before. check this. not sure if it should be the left most child or top_k_ind"""
                 debug_left_most_id = get_left_most_id(r_parent_node)
-                r_new_node_enc = output[i] - output[get_left_most_id(r_parent_node)]
+                r_new_node_enc = output[i] - output[debug_left_most_id]
+                # r_new_node_enc = output[i] - output[get_left_most_id(r_parent_node)]
                 children = []
                 while True:
                     item_node = l1_node_list.pop()
@@ -183,28 +190,32 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                     if item_node.ID == r_parent_node.ID:
                         for child in children:
                             child_enc = node_encoding[child]
+                            ck_child_enc = ck_node_encoding[child]
                             label_weight = label_model(r_new_node_enc, child_enc)
                             label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
                             pred_label = labels[label_top_k_ind]
                             new_node.add(pred_label, child)
                         l1_node_list.append(new_node)
-                        node_encoding[new_node] = output[i] - r_new_node_enc
+                        """WARNING: seems this is wrong. changed"""
+                        # node_encoding[new_node] = output[i] - r_new_node_enc
+                        node_encoding[new_node] = r_new_node_enc
+                        ck_node_encoding[new_node] = [debug_left_most_id, i]
                         break
                 left_most_idx = get_left_most_id(new_node)
 
         i += 1
 
-    # check if Node(1.1) is empty
-    head_node = l1.heads[0]
-    head_node_enc = output[-1] - output[0]
-    if len(head_node.get_terminals()) == 0:
-        for node in l1_node_list:
-            # print(node.get_terminals())
-            current_node_encoding = node_encoding[node]
-            label_weight = label_model(head_node_enc, current_node_encoding)
-            label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
-            pred_label = labels[label_top_k_ind]
-            head_node.add(pred_label, node)
+    # # check if Node(1.1) is empty
+    # head_node = l1.heads[0]
+    # head_node_enc = output[-1] - output[0]
+    # if len(head_node.get_terminals()) == 0:
+    #     for node in l1_node_list:
+    #         # print(node.get_terminals())
+    #         current_node_encoding = node_encoding[node]
+    #         label_weight = label_model(head_node_enc, current_node_encoding)
+    #         label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
+    #         pred_label = labels[label_top_k_ind]
+    #         head_node.add(pred_label, node)
 
     # ioutil.write_passage(passage)
     # print(passage)
