@@ -81,13 +81,18 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         # if only one child left after cleaning remote and implicit
         if len(reordered_pp_children) == 1:
             # remove the intermeddite node
+            # print(primary_parent)
+            # print(reordered_pp_children)
             primary_parent.remove(reordered_pp_children[0])
             primary_gp = get_primary_parent(primary_parent)
             gp_edge = [edge for edge in primary_gp.outgoing if edge.child == primary_parent][0]
             primary_gp.remove(primary_parent)
             primary_gp.add(gp_edge.tag, reordered_pp_children[0])
-            train_passage._remove_node(primary_parent)
-            l1._remove_node(primary_parent)
+            # train_passage._remove_node(primary_parent)
+            try:
+                l1._remove_node(primary_parent)
+            except:
+                pass
             # ioutil.write_passage(train_passage)
 
             primary_parent = primary_gp
@@ -122,10 +127,17 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     if child.attrib.get("implicit"):
                         continue
                     child_label = edge.tag
-                    child_encoding = node_encoding[child]
+
+                    if child in node_encoding:
+                        child_encoding = node_encoding[child]
+                    else:
+                        child_encoding = output[get_child_idx_in_l0(child, "right")] - output[get_child_idx_in_l0(child)]
+
                     label_weight = label_model(primary_parent_encoding, child_encoding)
+
                     label_loss += criterion(label_weight,
                                             torch.tensor([label2index[child_label]], dtype=torch.long, device=device))
+
                     label_loss_num += 1
 
                 # for boundary loss
@@ -178,14 +190,15 @@ def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
         return int(children[-1].ID.split(".")[1]) - 1
 
     edges = get_legit_edges(node)
-    children = [edge.child for edge in edges]
+    children = [edge.child for edge in edges if not edge.child.attrib.get("implicit")]
     children = reorder_children(children)
 
     if direction == "left":
         left_most_child = children[0]
         while len(left_most_child.children) > 0:
             child_edges = get_legit_edges(left_most_child)
-            grandchildren = [edge.child for edge in child_edges]
+            grandchildren = [edge.child for edge in child_edges if not edge.child.attrib.get("implicit")]
+            grandchildren = reorder_children(grandchildren)
             left_most_child = grandchildren[0]
         if get_node:
             return left_most_child
@@ -194,7 +207,8 @@ def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
         right_most_child = children[-1]
         while len(right_most_child.children) > 0:
             child_edges = get_legit_edges(right_most_child)
-            grandchildren = [edge.child for edge in child_edges]
+            grandchildren = [edge.child for edge in child_edges if not edge.child.attrib.get("implicit")]
+            grandchildren = reorder_children(grandchildren)
             right_most_child = grandchildren[-1]
         if get_node:
             return right_most_child
@@ -267,7 +281,10 @@ def reorder_children(children):
             l_child = child
         else:
             while len(edges) > 0:
-                l_child = edges[0].child
+                for edge in edges:
+                    if not edge.child.attrib.get("implicit"):
+                        l_child = edge.child
+                        break
                 edges = get_legit_edges(l_child)
             
         child2l0[int(l_child.ID.split(".")[1])] = child
