@@ -205,17 +205,17 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
 
         i += 1
 
-    # # check if Node(1.1) is empty
-    # head_node = l1.heads[0]
-    # head_node_enc = output[-1] - output[0]
-    # if len(head_node.get_terminals()) == 0:
-    #     for node in l1_node_list:
-    #         # print(node.get_terminals())
-    #         current_node_encoding = node_encoding[node]
-    #         label_weight = label_model(head_node_enc, current_node_encoding)
-    #         label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
-    #         pred_label = labels[label_top_k_ind]
-    #         head_node.add(pred_label, node)
+    # check if Node(1.1) is empty
+    head_node = l1.heads[0]
+    head_node_enc = output[-1] - output[0]
+    if len(head_node.get_terminals()) == 0:
+        for node in l1_node_list:
+            # print(node.get_terminals())
+            current_node_encoding = node_encoding[node]
+            label_weight = label_model(head_node_enc, current_node_encoding)
+            label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
+            pred_label = labels[label_top_k_ind]
+            head_node.add(pred_label, node)
 
     # ioutil.write_passage(passage)
     # print(passage)
