@@ -37,7 +37,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
     best_score = 0
 
-    split_num = 3601
+    split_num = 3701
     # split_num = 52
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_text, t_passages, t_pos))
@@ -82,14 +82,15 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
             # debugging
             # print(train_passage.layers)
-            # try:
-            loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
-                                    a_model_optimizer, label_model, label_model_optimizer, criterion,
-                                    ori_sent, pos, pos_tensor)
-            total_loss += loss
-            num += 1
-            # except Exception as e:
-            #     print("sent: %s has training error: %s" % (str(sent_id), e))
+            # print(sent_id)
+            try:
+                loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
+                                        a_model_optimizer, label_model, label_model_optimizer, criterion,
+                                        ori_sent, pos, pos_tensor)
+                total_loss += loss
+                num += 1
+            except Exception as e:
+                print("sent: %s has training error: %s" % (str(sent_id), e))
 
             if num % 1000 == 0:
                 print("%d finished" % num)
@@ -122,8 +123,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 def main():
     # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
     # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-    train_file = "check_training/672004.xml"
-    dev_file = "check_evaluate/672004.xml"
+    train_file = "check_training/000000.xml"
+    dev_file = "check_evaluate/000000.xml"
     # train_file = "sample_data/train"
     # dev_file = "sample_data/dev"
 

@@ -258,6 +258,10 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index)
+
+        # print(pred_passage)
+        # print(tgt_passage)
+
         labeled, unlabeled = get_score(pred_passage, tgt_passage, testing, eval_type)
 
         total_labeled = tuple(map(operator.add, total_labeled, labeled))
