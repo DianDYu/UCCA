@@ -36,7 +36,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     if debugging:
         model = RNNModel(n_words, pos_vocab.n_words, use_pretrain=False).to(device)
     else:
-        model = RNNModel(n_words, pos_vocab.n_words, use_pretrain=False).to(device)
+        model = RNNModel(n_words, pos_vocab.n_words).to(device)
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
     if using_sub_model:
