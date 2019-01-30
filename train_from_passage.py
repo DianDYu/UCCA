@@ -10,6 +10,8 @@ random.seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+predict_l1 = False
+
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
                     label_model, label_model_optimizer, s_model, s_model_optimizer,
@@ -31,6 +33,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     label_loss = 0
     unit_loss_num = 0
     label_loss_num = 0
+    propn_loss = 0
+    propn_loss_num = 0
 
     output, hidden = model(sent_tensor, pos_tensor)
     # output: (seq_len, batch, hidden_size)
@@ -67,6 +71,22 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     output_i, combine_l0 = s_model(output_boundary)
                 else:
                     output_i = output[right_most_ner] - output[i]
+
+                if predict_l1:
+                    # for each j attend to itself and for the whole, calculate a loss
+                    # later need to also calculate a loss for an attending node on the same level (w/o parent)
+                    for j in range(i, right_most_ner):
+                        attn_weight = a_model(output[i], output_2d, i)
+                        unit_loss += criterion(attn_weight, torch.tensor([i], dtype=torch.long, device=device))
+                        unit_loss_num += 1
+
+                    # right boundary
+                    ner_attn_weight = a_model(output[right_most_ner], output_2d, right_most_ner)
+                    unit_loss += criterion(ner_attn_weight, torch.tensor([i],
+                                                                         dtype=torch.long, device=device))
+                    unit_loss_num += 1
+                    propn_loss += criterion(combine_l0, torch.tensor([1], dtype=torch.long, device=device))
+                    propn_loss_num += 1
 
                 i = right_most_ner
                 node_encoding[t_node_i_in_l1] = output_i
@@ -120,6 +140,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
         else:
             current_encoding = output_i
+            to_layer1 = True
             while True:
                 # attend to a previous node
                 left_most_child_idx = get_child_idx_in_l0(primary_parent, "left")
@@ -129,6 +150,11 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     primary_parent_encoding, combine_l0 = s_model(output_boundary)
                 else:
                     primary_parent_encoding = output_i - output[left_most_child_idx]
+
+                if predict_l1 and to_layer1:
+                    to_layer1 = False
+                    propn_loss += criterion(combine_l0, torch.tensor([0], dtype=torch.long, device=device))
+                    propn_loss_num += 1
 
                 node_encoding[primary_parent] = primary_parent_encoding
 
@@ -189,7 +215,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
         i += 1
 
-    total_loss = unit_loss + label_loss
+    total_loss = unit_loss + label_loss + propn_loss
     total_loss.backward()
 
     # gradient clipping
@@ -199,14 +225,13 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     if using_s_model:
         torch.nn.utils.clip_grad_norm_(parameters=s_model.parameters(), max_norm=max_grad_norm)
 
-
     model_optimizer.step()
     a_model_optimizer.step()
     label_model_optimizer.step()
     if using_s_model:
         s_model_optimizer.step()
 
-    return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
+    return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num + propn_loss / propn_loss_num
 
 
 def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
