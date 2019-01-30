@@ -180,7 +180,7 @@ class SubModel(nn.Module):
         is_ner_prob = 0
         if layer0:
             h1 = self.linear(last_output)
-            h2 = self.linear(F.relu(h1))
+            h2 = self.ner_mapping(F.relu(h1))
             is_ner_prob = F.log_softmax(h2, dim=1)
 
         return last_output, is_ner_prob
