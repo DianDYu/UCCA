@@ -128,7 +128,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
             if using_s_model:
                 output_boundary = output[left_most_idx: i]
-                node_encoding[terminal_node_in_l1] = s_model(output_boundary)
+                node_encoding[terminal_node_in_l1], combine_l0 = s_model(output_boundary)
             else:
                 node_encoding[terminal_node_in_l1] = output[i - 1] - output[left_most_idx]
 
@@ -173,7 +173,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                 if using_s_model:
                     output_boundary = output[debug_left_most_id: i + 1]
-                    new_node_enc = s_model(output_boundary)
+                    new_node_enc, combine_l0 = s_model(output_boundary)
                 else:
                     new_node_enc = output[i] - output[debug_left_most_id]
                 # new_node_enc = output[i] - output[get_left_most_id(parent_node)]
@@ -212,7 +212,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
             if using_s_model:
                 output_boundary = output[left_most_idx: i + 1]
-                new_node_output = s_model(output_boundary)
+                new_node_output, combine_l0 = s_model(output_boundary)
             else:
                 new_node_output = output[i] - output[left_most_idx]
 
@@ -236,7 +236,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                 if using_s_model:
                     output_boundary = output[debug_left_most_id: i + 1]
-                    r_new_node_enc = s_model(output_boundary)
+                    r_new_node_enc, combine_l0 = s_model(output_boundary)
                 else:
                     r_new_node_enc = output[i] - output[debug_left_most_id]
 
