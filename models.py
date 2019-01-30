@@ -139,6 +139,50 @@ class RNNModel(nn.Module):
         return output, hidden_final
 
 
+class SubModel(nn.Module):
+    """
+    not sure how many directions and layers we need
+    not sure the dimension needed for ner_mapping
+    """
+    def __init__(self, vocab_size, pos_vocab_size, use_pretrain=True):
+        super(RNNModel, self).__init__()
+        self.num_directions = 2
+        self.hidden_size= 500
+        self.input_size = 500
+        self.num_layers = 2
+        self.dropout = 0.3
+        self.batch_size = 1
+
+        self.hidden_size = self.hidden_size // self.num_directions
+
+        self.drop = nn.Dropout(self.dropout)
+        self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
+                            dropout=self.dropout, bidirectional=(self.num_directions == 2))
+        self.hidden = self.init_hidden()
+
+        # use for predicting combining nodes from layer 0 to layer 1
+        self.linear = nn.Linear(self.hidden_size, 100)
+        self.ner_mapping = nn.Linear(100, 2)
+
+    def init_hidden(self):
+        # h_0: (num_layers * num_directions, batch, hidden_size)
+        # c_0: (num_layers * num_directions, batch, hidden_size)
+        return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
+                torch.zeros(4, self.batch_size, self.hidden_size, device=device))
+
+    def forward(self, input, layer0=False):
+        output, hidden_final = self.lstm(input, self.hidden)
+        # last_otuput should be of size (1, num_dir * hidden_size)
+        last_output = output.squeeze(1)[-1]
+        is_ner_prob = 0
+        if layer0:
+            h1 = self.linear(last_output)
+            h2 = self.linear(F.relu(h1))
+            is_ner_prob = F.log_softmax(h2, dim=1)
+
+        return last_output, is_ner_prob
+
+
 class AModel(nn.Module):
     """
     #     TODO: not sure if we need to
