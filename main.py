@@ -22,7 +22,7 @@ label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
 
-debugging = False
+debugging = True
 
 
 def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent):
@@ -100,14 +100,21 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             # debugging
             # print(train_passage.layers)
             # print(sent_id)
-            try:
+            if not debugging:
+                try:
+                    loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
+                                           a_model_optimizer, label_model, label_model_optimizer, s_model,
+                                           s_model_optimizer, criterion, ori_sent, pos, pos_tensor)
+                    total_loss += loss
+                    num += 1
+                except Exception as e:
+                    print("sent: %s has training error: %s" % (str(sent_id), e))
+            else:
                 loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                        a_model_optimizer, label_model, label_model_optimizer, s_model,
                                        s_model_optimizer, criterion, ori_sent, pos, pos_tensor)
                 total_loss += loss
                 num += 1
-            except Exception as e:
-                print("sent: %s has training error: %s" % (str(sent_id), e))
 
             if num % 1000 == 0:
                 print("%d finished" % num)
