@@ -146,6 +146,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 primary_grandparent = get_primary_parent(primary_parent)
                 # head node
                 if len(primary_grandparent) == 0:
+                    # attend to itself
+                    attn_weight = a_model(node_encoding[primary_parent], output_2d, i)
+                    unit_loss += criterion(attn_weight, torch.tensor([i], dtype=torch.long, device=device))
+                    unit_loss_num += 1
                     break
 
                 grandparent_children = get_legit_children(primary_grandparent)
