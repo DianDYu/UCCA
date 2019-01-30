@@ -64,7 +64,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
                 if using_s_model:
                     output_boundary = output[i: right_most_ner + 1]
-                    output_i = s_model(output_boundary)
+                    output_i, combine_l0 = s_model(output_boundary)
                 else:
                     output_i = output[right_most_ner] - output[i]
 
@@ -126,7 +126,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
                 if using_s_model:
                     output_boundary = output[left_most_child_idx: i + 1]
-                    primary_parent_encoding = s_model(output_boundary)
+                    primary_parent_encoding, combine_l0 = s_model(output_boundary)
                 else:
                     primary_parent_encoding = output_i - output[left_most_child_idx]
 
@@ -152,7 +152,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                         finding_left = get_child_idx_in_l0(child)
                         if using_s_model:
                             output_boundary = output[finding_left: finding_right + 1]
-                            child_encoding = s_model(output_boundary)
+                            child_encoding, combine_l0 = s_model(output_boundary)
                         else:
                             child_encoding = output[finding_right] - output[finding_left]
 
