@@ -10,7 +10,7 @@ random.seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-predict_l1 = False
+predict_l1 = True
 
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
@@ -68,7 +68,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
                 if using_s_model:
                     output_boundary = output[i: right_most_ner + 1]
-                    output_i, combine_l0 = s_model(output_boundary)
+                    output_i, combine_l0 = s_model(output_boundary, layer0=True)
                 else:
                     output_i = output[right_most_ner] - output[i]
 
@@ -147,7 +147,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
                 if using_s_model:
                     output_boundary = output[left_most_child_idx: i + 1]
-                    primary_parent_encoding, combine_l0 = s_model(output_boundary)
+                    primary_parent_encoding, combine_l0 = s_model(output_boundary, layer0=True)
                 else:
                     primary_parent_encoding = output_i - output[left_most_child_idx]
 

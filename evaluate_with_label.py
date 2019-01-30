@@ -10,7 +10,7 @@ import torch
 punc = string.punctuation
 terminal_tag = "Terminal"
 
-predict_l1 = False
+predict_l1 = True
 
 
 def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent, dev_passage, pos,
@@ -250,7 +250,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                 if using_s_model:
                     output_boundary = output[debug_left_most_id: i + 1]
-                    new_node_enc, combine_l0 = s_model(output_boundary)
+                    new_node_enc, combine_l0 = s_model(output_boundary, layer0=True)
                 else:
                     new_node_enc = output[i] - output[debug_left_most_id]
 
