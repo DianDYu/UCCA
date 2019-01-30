@@ -12,11 +12,17 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
-                    label_model, label_model_optimizer, criterion, ori_sent, pos, pos_tensor):
+                    label_model, label_model_optimizer, s_model, s_model_optimizer,
+                    criterion, ori_sent, pos, pos_tensor):
 
     model_optimizer.zero_grad()
     a_model_optimizer.zero_grad()
     label_model_optimizer.zero_grad()
+
+    using_s_model = False
+    if not isinstance(s_model, str):
+        s_model_optimizer.zero_grad()
+        using_s_model = True
 
     max_recur = 5
     max_grad_norm = 1.0
@@ -55,7 +61,13 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
             if is_consecutive(t_node_i_in_l1):
                 # deal with proper nouns
                 right_most_ner = get_child_idx_in_l0(t_node_i_in_l1, "right", reorder=True)
-                output_i = output[right_most_ner] - output[i]
+
+                if using_s_model:
+                    output_boundary = output[i: right_most_ner + 1]
+                    output_i = s_model(output_boundary)
+                else:
+                    output_i = output[right_most_ner] - output[i]
+
                 i = right_most_ner
                 node_encoding[t_node_i_in_l1] = output_i
             else:
@@ -112,7 +124,12 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 # attend to a previous node
                 left_most_child_idx = get_child_idx_in_l0(primary_parent, "left")
 
-                primary_parent_encoding = output_i - output[left_most_child_idx]
+                if using_s_model:
+                    output_boundary = output[left_most_child_idx: i + 1]
+                    primary_parent_encoding = s_model(output_boundary)
+                else:
+                    primary_parent_encoding = output_i - output[left_most_child_idx]
+
                 node_encoding[primary_parent] = primary_parent_encoding
 
                 # boundary loss
@@ -131,7 +148,13 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     if child in node_encoding:
                         child_encoding = node_encoding[child]
                     else:
-                        child_encoding = output[get_child_idx_in_l0(child, "right")] - output[get_child_idx_in_l0(child)]
+                        finding_right = get_child_idx_in_l0(child, "right")
+                        finding_left = get_child_idx_in_l0(child)
+                        if using_s_model:
+                            output_boundary = output[finding_left: finding_right + 1]
+                            child_encoding = s_model(output_boundary)
+                        else:
+                            child_encoding = output[finding_right] - output[finding_left]
 
                     label_weight = label_model(primary_parent_encoding, child_encoding)
 
@@ -173,10 +196,15 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     torch.nn.utils.clip_grad_norm_(parameters=model.parameters(), max_norm=max_grad_norm)
     torch.nn.utils.clip_grad_norm_(parameters=a_model.parameters(), max_norm=max_grad_norm)
     torch.nn.utils.clip_grad_norm_(parameters=label_model.parameters(), max_norm=max_grad_norm)
+    if using_s_model:
+        torch.nn.utils.clip_grad_norm_(parameters=s_model.parameters(), max_norm=max_grad_norm)
+
 
     model_optimizer.step()
     a_model_optimizer.step()
     label_model_optimizer.step()
+    if using_s_model:
+        s_model_optimizer.step()
 
     return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num
 
