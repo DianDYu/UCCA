@@ -1,9 +1,10 @@
 import torch
 import numpy as np
 
-vocab_dir = "vocab.pt"
-embedding_dir = "/home/dianyu/Downloads/crawl-300d-2M.vec"
+vocab_dir = "passage_vocab.pt"
+# embedding_dir = "/home/dianyu/Downloads/crawl-300d-2M.vec"
 # embedding_dir = "/home/dianyu/Downloads/wiki-news-300d-1M-subword.vec"
+embedding_dir = "data/crawl-300d-2M-subword.vec"
 emb_dim = 300
 
 
