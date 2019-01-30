@@ -162,11 +162,17 @@ def prepare_pos_vocab(train_pos, dev_pos, pos_vocab_dir):
     torch.save(pos_vocab, pos_vocab_dir)
 
 
-def save_test_model(model_e, a_model_e, label_model_e, n_words, pos_n_words, epoch, f1):
+def save_test_model(model_e, a_model_e, label_model_e, s_model_e, n_words, pos_n_words, epoch, f1):
+    if not isinstance(s_model_e, str):
+        s_model_dict = s_model_e.state_dict()
+    else:
+        s_model_dict = "sub_lstm_model"
+
     checkpoint = {
         'model': model_e.state_dict(),
         'a_model': a_model_e.state_dict(),
         'label_model': label_model_e.state_dict(),
+        's_model': s_model_dict,
         'vocab_size': n_words,
         'pos_vocab_size': pos_n_words
     }
