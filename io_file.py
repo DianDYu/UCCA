@@ -72,6 +72,24 @@ def loading_data(file_dir):
            sent_pos, sent_ent, sent_head
 
 
+def loading_data_passsage(file_dir):
+    sent_ids, data_text, data_text_tensor, passages, sent_pos, sent_ent, sent_head = [], [], [], [], [], [], []
+    data_list = torch.load(file_dir)
+    for line in data_list:
+        (sent_id, ori_sent, sent_tensor, passage, pos, ent, head)\
+            = [i for i in line]
+        sent_ids.append(sent_id)
+        data_text.append(ori_sent)
+        data_text_tensor.append(sent_tensor)
+        passages.append(passage)
+        sent_pos.append(pos)
+        sent_ent.append(ent)
+        sent_head.append(head)
+
+    return sent_ids, data_text, data_text_tensor, passages, \
+        sent_pos, sent_ent, sent_head
+
+
 def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir):
     vocab = Vocab()
     train_text = get_text(train_passages)
