@@ -9,17 +9,25 @@ from io_file import read_passages, passage_loading_data, get_text, tensorFromSen
 
 torch.manual_seed(1)
 
+debugging = False
+
 # dev_file_dir = "dev_proc.pt"
 # # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/590021.xml"
 # vocab_dir = "vocab.pt"
 # pos_vocab_dir = "pos_vocab.pt"
 
-dev_file_dir = "passage_dev_proc.pt"
-vocab_dir = "passage_vocab.pt"
-pos_vocab_dir = "passage_pos_vocab.pt"
+if not debugging:
+    dev_file_dir = "passage_dev_proc.pt"
+    vocab_dir = "passage_vocab.pt"
+    pos_vocab_dir = "passage_pos_vocab.pt"
 
-checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_14_f1_69.14.pt"
-# checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_34_f1_64.96.pt"
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_34_f1_64.96.pt"
+else:
+    dev_file_dir = "dbg_passage_dev_proc.pt"
+    vocab_dir = "dbg_passage_vocab.pt"
+    pos_vocab_dir = "dbg_passage_pos_vocab.pt"
+
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_300_f1_0.00.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
