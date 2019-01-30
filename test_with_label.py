@@ -1,6 +1,6 @@
 import torch
 
-from models import RNNModel, AModel, LabelModel, Vocab
+from models import RNNModel, AModel, LabelModel, Vocab, SubModel
 from io_file import get_pos_tensor, loading_data, loading_data_passsage
 from evaluate_with_label import get_validation_accuracy
 from with_label import labels, label2index
@@ -23,6 +23,8 @@ checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_14_f1_69.14.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+using_sub_model = True
+
 
 def load_test_model(checkpoint_path):
     """
@@ -42,9 +44,14 @@ def load_test_model(checkpoint_path):
     model = RNNModel(vocab_size, pos_vocab_size, use_pretrain=False)
     a_model = AModel()
     label_model = LabelModel(labels)
+    s_model = SubModel()
     model.load_state_dict(checkpoint['model'])
     a_model.load_state_dict(checkpoint['a_model'])
     label_model.load_state_dict(checkpoint['label_model'])
+    if using_sub_model:
+        s_model.load_state_dict(checkpoint["s_model"])
+        s_model.to(device)
+        s_model.eval()
     model.to(device)
     a_model.to(device)
     label_model.to(device)
@@ -52,7 +59,7 @@ def load_test_model(checkpoint_path):
     a_model.eval()
     label_model.eval()
     print()
-    return model, a_model, label_model
+    return model, a_model, label_model, s_model
 
 
 def main():
@@ -71,10 +78,10 @@ def main():
     pos_vocab = torch.load(pos_vocab_dir)
     pos_tensor = get_pos_tensor(pos_vocab, dev_pos)
 
-    model_r, a_model_r, label_model_r = load_test_model(checkpoint_path)
+    model_r, a_model_r, label_model_r, s_model_r = load_test_model(checkpoint_path)
 
     labeled_f1, unlabeled_f1 = get_validation_accuracy(dev_text_tensor, model_r, a_model_r,
-                                                       label_model_r, dev_text, dev_passages,
+                                                       label_model_r, s_model_r, dev_text, dev_passages,
                                                        dev_pos, pos_tensor, labels, label2index, dev_ent,
                                                        eval_type="labeled", testing=False)
 
