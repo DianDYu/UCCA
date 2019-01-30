@@ -7,7 +7,7 @@ from torch import optim
 
 from io_file import read_passages, passage_preprocess_data, passage_loading_data, prepare_pos_vocab, \
     get_pos_tensor, save_test_model
-from models import RNNModel, AModel, LabelModel, Vocab
+from models import RNNModel, AModel, LabelModel, Vocab, SubModel
 from train_from_passage import train_f_passage
 from evaluate_with_label import get_validation_accuracy
 
@@ -27,13 +27,21 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     n_epoch = 300
     criterion = nn.NLLLoss()
 
+    using_sub_model = True
+    if not using_sub_model:
+        s_model = s_model_optimizer = "sub_lstm_model"
+
     model = RNNModel(n_words, pos_vocab.n_words).to(device)
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
+    if using_sub_model:
+        s_model = SubModel().to(device)
 
     model_optimizer = optim.Adam(model.parameters())
     a_model_optimizer = optim.Adam(a_model.parameters())
     label_model_optimizer = optim.Adam(label_model.parameters())
+    if using_sub_model:
+        s_model_optimizer = optim.Adam(s_model.parameters())
 
     best_score = 0
 
@@ -77,6 +85,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         model.train()
         a_model.train()
         label_model.train()
+        if using_sub_model:
+            s_model.train()
 
         for sent_id, sent_tensor, train_passage, ori_sent, pos, pos_tensor, ent in \
                 zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor, train_ent):
@@ -86,8 +96,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             # print(sent_id)
             try:
                 loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
-                                       a_model_optimizer, label_model, label_model_optimizer, criterion,
-                                       ori_sent, pos, pos_tensor)
+                                       a_model_optimizer, label_model, label_model_optimizer, s_model,
+                                       s_model_optimizer, criterion, ori_sent, pos, pos_tensor)
                 total_loss += loss
                 num += 1
             except Exception as e:
@@ -103,21 +113,23 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         model.eval()
         a_model.eval()
         label_model.eval()
+        if using_sub_model:
+            s_model.eval()
 
-        labeled_f1, unlabeled_f1 = get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text,
-                                                           val_passages, val_pos, val_pos_tensor, labels, label2index,
-                                                           val_ent, eval_type="labeled")
+        labeled_f1, unlabeled_f1 = get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model,
+                                                           val_text,val_passages, val_pos, val_pos_tensor, labels,
+                                                           label2index, val_ent, eval_type="labeled")
         print("validation f1 labeled: %.4f" % labeled_f1)
         print("validation f1 unlabeled: %.4f" % unlabeled_f1)
         print()
 
         if labeled_f1 > best_score:
             best_score = labeled_f1
-            save_test_model(model, a_model, label_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
+            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
 
         # save last model
         if epoch == n_epoch:
-            save_test_model(model, a_model, label_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
+            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
 
 
 
