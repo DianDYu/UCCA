@@ -171,8 +171,8 @@ class SubModel(nn.Module):
         return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
                 torch.zeros(4, self.batch_size, self.hidden_size, device=device))
 
-    def forward(self, input, layer0=False):
-        output, hidden_final = self.lstm(input, self.hidden)
+    def forward(self, input, inp_hidden=self.hidden, layer0=False):
+        output, hidden_final = self.lstm(input, inp_hidden)
         # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
         last_output = output[-1]
 
