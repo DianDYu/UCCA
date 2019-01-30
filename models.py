@@ -172,8 +172,8 @@ class SubModel(nn.Module):
 
     def forward(self, input, layer0=False):
         output, hidden_final = self.lstm(input, self.hidden)
-        # last_otuput should be of size (1, num_dir * hidden_size)
-        last_output = output.squeeze(1)[-1]
+        # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
+        last_output = output[-1]
 
         # nodes combination prediction
         is_ner_prob = 0
