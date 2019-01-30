@@ -12,7 +12,7 @@ terminal_tag = "Terminal"
 
 
 def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_passage, pos,
-                        pos_tensor, labels, label2index):
+                        pos_tensor, labels, label2index, ent):
     """
 
     :param sent_tensor:
@@ -51,13 +51,17 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
     l0 = layer0.Layer0(root=passage)
     l1 = layer1.Layer1(passage)
 
+    predicted_scene = False
+
     while i < len(ori_sent):
         terminal_token = ori_sent[i]
         pos_tag = pos[i]
+        ent_type = ent[i]
 
         # proper nouns (only use when there are more than one consecutive PROPNs
         if pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM") \
                 or (pos_tag == "DET" and i + 1 < len(ori_sent) and pos[i + 1] == "PROPN"):
+                # or len(ent_type) > 0 and i + 1 < len(ori_sent) and len(ent[i + 1]) > 0:
 
             left_most_idx = i
             output_i = output[i]
@@ -75,6 +79,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                     i += 1
 
             # including cases like "The Bahamas"
+            # elif pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM"):
             else:
                 while True:
                     # create terminal node in l0
@@ -92,6 +97,22 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                         continue
                     elif pos[i] != "PROPN":
                         break
+
+            # else:
+            #     while True:
+            #         # create terminal node in l0
+            #         terminal_token = ori_sent[i]
+            #         is_punc = terminal_token in punc
+            #         terminal_node = l0.add_terminal(terminal_token, is_punc)
+            #         l0_node_list.append(terminal_node)
+            #         combine_list.append(terminal_node)
+            #         i += 1
+            #
+            #         if i >= len(ori_sent):
+            #             break
+            #
+            #         if len(ent[i]) == 0:
+            #             break
 
             # combine the nodes in combine_list to one node in l1
             l1_position = len(l1._all) + 1
@@ -152,7 +173,17 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                             child_enc = node_encoding[child]
                             ck_child_enc = ck_node_encoding[child]
                             label_weight = label_model(new_node_enc, child_enc)
+
+                            # restrict predicting "H" label
                             label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
+                            # label_top_k_values, label_top_k_inds = torch.topk(label_weight, 2)
+                            # label_top_k_ind = label_top_k_inds[0][0]
+                            # if label_top_k_ind == label2index["H"]:
+                            #     if not (debug_left_most_id == 0 and i == len(ori_sent) - 1):
+                            #         label_top_k_ind = label_top_k_inds[0][1]
+                            #     else:
+                            #         predicted_scene = True
+
                             pred_label = labels[label_top_k_ind]
                             new_node.add(pred_label, child)
                         l1_node_list.append(new_node)
@@ -163,7 +194,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
 
         # recursive call to see if need to create new node
         for r in range(1, max_recur + 1):
-            new_node_output = output_i - output[left_most_idx]
+            new_node_output = output[i] - output[left_most_idx]
             new_node_attn_weight = a_model(new_node_output, output_2d, i)
             r_top_k_value, r_top_k_ind = torch.topk(new_node_attn_weight, 1)
             #predict out of boundary
@@ -192,7 +223,17 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                             child_enc = node_encoding[child]
                             ck_child_enc = ck_node_encoding[child]
                             label_weight = label_model(r_new_node_enc, child_enc)
+
+                            # restrict predicting "H" label
                             label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
+                            # label_top_k_values, label_top_k_inds = torch.topk(label_weight, 2)
+                            # label_top_k_ind = label_top_k_inds[0][0]
+                            # if label_top_k_ind == label2index["H"]:
+                            #     if not (debug_left_most_id == 0 and i == len(ori_sent) - 1):
+                            #         label_top_k_ind = label_top_k_inds[0][1]
+                            #     else:
+                            #         predicted_scene = True
+
                             pred_label = labels[label_top_k_ind]
                             new_node.add(pred_label, child)
                         l1_node_list.append(new_node)
@@ -205,17 +246,17 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
 
         i += 1
 
-    # check if Node(1.1) is empty
-    head_node = l1.heads[0]
-    head_node_enc = output[-1] - output[0]
-    if len(head_node.get_terminals()) == 0:
-        for node in l1_node_list:
-            # print(node.get_terminals())
-            current_node_encoding = node_encoding[node]
-            label_weight = label_model(head_node_enc, current_node_encoding)
-            label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
-            pred_label = labels[label_top_k_ind]
-            head_node.add(pred_label, node)
+    # # check if Node(1.1) is empty
+    # if not predicted_scene:
+    #     head_node = l1.heads[0]
+    #     head_node_enc = output[-1] - output[0]
+    #     for node in l1_node_list:
+    #         # print(node.get_terminals())
+    #         current_node_encoding = node_encoding[node]
+    #         label_weight = label_model(head_node_enc, current_node_encoding)
+    #         label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
+    #         pred_label = labels[label_top_k_ind]
+    #         head_node.add(pred_label, node)
 
     # ioutil.write_passage(passage)
     # print(passage)
@@ -253,7 +294,7 @@ def get_left_most_id(node):
 
 
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text, val_passages,
-                            val_pos, val_pos_tensor, labels, label2index, eval_type="unlabeled",
+                            val_pos, val_pos_tensor, labels, label2index, val_ent, eval_type="unlabeled",
                             testing=False):
 
     total_labeled = (total_matches_l, total_guessed_l, total_ref_l) = (0, 0, 0)
@@ -261,14 +302,15 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
 
     top_10_to_writeout = 10
 
-    for sent_tensor, ori_sent, tgt_passage, pos, pos_tensor in \
-            zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor):
-        if len(ori_sent) > 70:
-            print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
+    for sent_tensor, ori_sent, tgt_passage, pos, pos_tensor, ent in \
+            zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor, val_ent):
+        # if len(ori_sent) > 70:
+        #     print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
+        # print(tgt_passage.ID)
         # try:
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent,
-                                               tgt_passage, pos, pos_tensor, labels, label2index)
+                                               tgt_passage, pos, pos_tensor, labels, label2index, ent)
 
         # print(pred_passage)
         # print(tgt_passage)
