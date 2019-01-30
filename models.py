@@ -161,6 +161,7 @@ class SubModel(nn.Module):
         self.hidden = self.init_hidden()
 
         # use for predicting combining nodes from layer 0 to layer 1
+        # 1 is to combine; 0 is to not combine
         self.linear = nn.Linear(self.hidden_size, 100)
         self.ner_mapping = nn.Linear(100, 2)
 
