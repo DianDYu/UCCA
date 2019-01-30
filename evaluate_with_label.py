@@ -10,6 +10,8 @@ import torch
 punc = string.punctuation
 terminal_tag = "Terminal"
 
+predict_l1 = False
+
 
 def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent, dev_passage, pos,
                         pos_tensor, labels, label2index, ent):
@@ -57,85 +59,160 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
     predicted_scene = False
 
+    already_in_propn = [0]
+
     while i < len(ori_sent):
         terminal_token = ori_sent[i]
         pos_tag = pos[i]
         ent_type = ent[i]
 
-        # proper nouns (only use when there are more than one consecutive PROPNs
-        if pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM") \
-                or (pos_tag == "DET" and i + 1 < len(ori_sent) and pos[i + 1] == "PROPN"):
-                # or len(ent_type) > 0 and i + 1 < len(ori_sent) and len(ent[i + 1]) > 0:
+        if not predict_l1:
+            # proper nouns (only use when there are more than one consecutive PROPNs
+            if pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM") \
+                    or (pos_tag == "DET" and i + 1 < len(ori_sent) and pos[i + 1] == "PROPN"):
+                    # or len(ent_type) > 0 and i + 1 < len(ori_sent) and len(ent[i + 1]) > 0:
 
-            left_most_idx = i
-            output_i = output[i]
-            combine_list = []
+                left_most_idx = i
+                output_i = output[i]
+                combine_list = []
 
-            # For cases like "April(PROPN) 30(NUM) ,(PUNCT) 2008(NUM)"
-            if i + 3 < len(ori_sent) and pos[i + 1] == "NUM" and pos[i + 2] == "PUNCT" and pos[i + 3] == "NUM":
-                for _ in range(4):
-                    # create terminal node in l0
-                    terminal_token = ori_sent[i]
-                    is_punc = terminal_token in punc
-                    terminal_node = l0.add_terminal(terminal_token, is_punc)
-                    l0_node_list.append(terminal_node)
-                    combine_list.append(terminal_node)
-                    i += 1
+                # For cases like "April(PROPN) 30(NUM) ,(PUNCT) 2008(NUM)"
+                if i + 3 < len(ori_sent) and pos[i + 1] == "NUM" and pos[i + 2] == "PUNCT" and pos[i + 3] == "NUM":
+                    for _ in range(4):
+                        # create terminal node in l0
+                        terminal_token = ori_sent[i]
+                        is_punc = terminal_token in punc
+                        terminal_node = l0.add_terminal(terminal_token, is_punc)
+                        l0_node_list.append(terminal_node)
+                        combine_list.append(terminal_node)
+                        i += 1
 
-            # including cases like "The Bahamas"
-            # elif pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM"):
+                # including cases like "The Bahamas"
+                # elif pos_tag == "PROPN" and i + 1 < len(ori_sent) and (pos[i + 1] == "PROPN" or pos[i + 1] == "NUM"):
+                else:
+                    while True:
+                        # create terminal node in l0
+                        terminal_token = ori_sent[i]
+                        is_punc = terminal_token in punc
+                        terminal_node = l0.add_terminal(terminal_token, is_punc)
+                        l0_node_list.append(terminal_node)
+                        combine_list.append(terminal_node)
+                        i += 1
+
+                        if i >= len(ori_sent):
+                            break
+                        # for cases like "Lara Croft: Tomb Raider"
+                        if ori_sent[i] == ":" and i + 1 < len(pos) and pos[i + 1] == "PROPN":
+                            continue
+                        elif pos[i] != "PROPN":
+                            break
+
+                # else:
+                #     while True:
+                #         # create terminal node in l0
+                #         terminal_token = ori_sent[i]
+                #         is_punc = terminal_token in punc
+                #         terminal_node = l0.add_terminal(terminal_token, is_punc)
+                #         l0_node_list.append(terminal_node)
+                #         combine_list.append(terminal_node)
+                #         i += 1
+                #
+                #         if i >= len(ori_sent):
+                #             break
+                #
+                #         if len(ent[i]) == 0:
+                #             break
+
+                # combine the nodes in combine_list to one node in l1
+                l1_position = len(l1._all) + 1
+                ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, l1_position)
+                terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Foundational)
+                for terminal_node in combine_list:
+                    terminal_node_in_l1.add(terminal_tag, terminal_node)
+                l1_node_list.append(terminal_node_in_l1)
+
+                if using_s_model:
+                    output_boundary = output[left_most_idx: i]
+                    node_encoding[terminal_node_in_l1], combine_l0 = s_model(output_boundary)
+                else:
+                    node_encoding[terminal_node_in_l1] = output[i - 1] - output[left_most_idx]
+
+                ck_node_encoding[terminal_node_in_l1] = [left_most_idx, i - 1]
+
+                i -= 1
+
             else:
-                while True:
-                    # create terminal node in l0
-                    terminal_token = ori_sent[i]
-                    is_punc = terminal_token in punc
-                    terminal_node = l0.add_terminal(terminal_token, is_punc)
-                    l0_node_list.append(terminal_node)
-                    combine_list.append(terminal_node)
-                    i += 1
+                # create terminal node in l0
+                is_punc = terminal_token in punc
+                terminal_node = l0.add_terminal(terminal_token, is_punc)
+                l0_node_list.append(terminal_node)
 
-                    if i >= len(ori_sent):
-                        break
-                    # for cases like "Lara Croft: Tomb Raider"
-                    if ori_sent[i] == ":" and i + 1 < len(pos) and pos[i + 1] == "PROPN":
-                        continue
-                    elif pos[i] != "PROPN":
-                        break
-
-            # else:
-            #     while True:
-            #         # create terminal node in l0
-            #         terminal_token = ori_sent[i]
-            #         is_punc = terminal_token in punc
-            #         terminal_node = l0.add_terminal(terminal_token, is_punc)
-            #         l0_node_list.append(terminal_node)
-            #         combine_list.append(terminal_node)
-            #         i += 1
-            #
-            #         if i >= len(ori_sent):
-            #             break
-            #
-            #         if len(ent[i]) == 0:
-            #             break
-
-            # combine the nodes in combine_list to one node in l1
-            l1_position = len(l1._all) + 1
-            ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, l1_position)
-            terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Foundational)
-            for terminal_node in combine_list:
+                l1_position = len(l1._all) + 1
+                ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, l1_position)
+                terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Punctuation if
+                                                       is_punc else layer1.NodeTags.Foundational)
                 terminal_node_in_l1.add(terminal_tag, terminal_node)
-            l1_node_list.append(terminal_node_in_l1)
+                l1_node_list.append(terminal_node_in_l1)
+                node_encoding[terminal_node_in_l1] = output[i]
+                ck_node_encoding[terminal_node_in_l1] = [i, i]
 
-            if using_s_model:
-                output_boundary = output[left_most_idx: i]
-                node_encoding[terminal_node_in_l1], combine_l0 = s_model(output_boundary)
-            else:
-                node_encoding[terminal_node_in_l1] = output[i - 1] - output[left_most_idx]
+                output_i = output[i]
+                attn_i = a_model(output_i, output_2d, i)
+                top_k_value, top_k_ind = torch.topk(attn_i, 1)
 
-            ck_node_encoding[terminal_node_in_l1] = [left_most_idx, i - 1]
+                # for debugging
+                tki = top_k_ind.data[0][0]
 
-            i -= 1
+                # attend to the current terminal itself
+                if top_k_ind.data[0] >= i:
+                    i += 1
+                    continue
+                else:
+                    top_k_node = l0_node_list[top_k_ind]
+                    parent_node = get_parent_node(top_k_node)
+                    new_node_position = len(l1._all) + 1
+                    new_node_ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, new_node_position)
+                    new_node = FoundationalNode(new_node_ID, passage, tag=layer1.NodeTags.Foundational)
+                    """TODO: check this. not sure if it should be the left most child or top_k_ind"""
+                    debug_left_most_id = get_left_most_id(parent_node)
 
+                    if using_s_model:
+                        output_boundary = output[debug_left_most_id: i + 1]
+                        new_node_enc, combine_l0 = s_model(output_boundary)
+                    else:
+                        new_node_enc = output[i] - output[debug_left_most_id]
+                    # new_node_enc = output[i] - output[get_left_most_id(parent_node)]
+                    children = []
+                    while True:
+                        item_node = l1_node_list.pop()
+                        itemid = item_node.ID
+                        pid = parent_node.ID
+                        children.append(item_node)
+                        if item_node.ID == parent_node.ID:
+                            for child in children:
+                                child_enc = node_encoding[child]
+                                ck_child_enc = ck_node_encoding[child]
+                                label_weight = label_model(new_node_enc, child_enc)
+
+                                # restrict predicting "H" label
+                                label_top_k_value, label_top_k_ind = torch.topk(label_weight, 1)
+                                # label_top_k_values, label_top_k_inds = torch.topk(label_weight, 2)
+                                # label_top_k_ind = label_top_k_inds[0][0]
+                                # if label_top_k_ind == label2index["H"]:
+                                #     if not (debug_left_most_id == 0 and i == len(ori_sent) - 1):
+                                #         label_top_k_ind = label_top_k_inds[0][1]
+                                #     else:
+                                #         predicted_scene = True
+
+                                pred_label = labels[label_top_k_ind]
+                                new_node.add(pred_label, child)
+                            l1_node_list.append(new_node)
+                            node_encoding[new_node] = new_node_enc
+                            ck_node_encoding[new_node] = [debug_left_most_id, i]
+                            break
+                    left_most_idx = get_left_most_id(new_node)
+
+        # predict l0 to l1
         else:
             # create terminal node in l0
             is_punc = terminal_token in punc
@@ -145,7 +222,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
             l1_position = len(l1._all) + 1
             ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, l1_position)
             terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Punctuation if
-                                                   is_punc else layer1.NodeTags.Foundational)
+            is_punc else layer1.NodeTags.Foundational)
             terminal_node_in_l1.add(terminal_tag, terminal_node)
             l1_node_list.append(terminal_node_in_l1)
             node_encoding[terminal_node_in_l1] = output[i]
@@ -176,6 +253,50 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
                     new_node_enc, combine_l0 = s_model(output_boundary)
                 else:
                     new_node_enc = output[i] - output[debug_left_most_id]
+
+                propn_topk_value, propn_topk_ind = torch.topk(combine_l0, 1)
+                # need to combine nodes in l0
+
+                if propn_topk_ind.data[0] == 1 and already_in_propn[0] >= debug_left_most_id \
+                        and debug_left_most_id not in already_in_propn:
+                    combine_list = []
+                    while True:
+                        item_node = l1_node_list.pop()
+                        l1_node_to_l0_idx = get_left_most_id(item_node)
+                        itemid = item_node.ID
+                        pid = parent_node.ID
+                        combine_list.append(item_node)
+                        if l1_node_to_l0_idx == debug_left_most_id:
+                            break
+
+                    # make sure not to attend to a node with parents
+                    valid_attention = True
+                    for ck_node in combine_list:
+                        if len(ck_node.parents) > 0:
+                            valid_attention = False
+                            break
+                    # push back without change
+                    if not valid_attention:
+                        for ck_node in combine_list:
+                            l1_node_list.append(ck_node)
+                    else:
+                        l1_position = len(l1._all) + 1
+                        ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, l1_position)
+                        terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Foundational)
+                        for l1_node in combine_list:
+                            assert len(l1_node.children) == 1, "l1_node has more than 1 children"
+                            terminal_node = l1_node.children[0]
+                            # remove node_in_l1
+                            l1_node.remove(terminal_node)
+                            try:
+                                l1._remove_node(l1_node)
+                            except:
+                                pass
+                            # combine nodes
+                            terminal_node_in_l1.add(terminal_tag, terminal_node)
+                            already_in_propn.append(get_left_most_id(terminal_node))
+                        l1_node_list.append(terminal_node_in_l1)
+                        
                 # new_node_enc = output[i] - output[get_left_most_id(parent_node)]
                 children = []
                 while True:
@@ -206,6 +327,9 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
                         ck_node_encoding[new_node] = [debug_left_most_id, i]
                         break
                 left_most_idx = get_left_most_id(new_node)
+
+
+
 
         # recursive call to see if need to create new node
         for r in range(1, max_recur + 1):
