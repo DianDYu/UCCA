@@ -22,7 +22,7 @@ label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
 
-debugging = True
+debugging = False
 
 
 def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent):
@@ -36,7 +36,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     if debugging:
         model = RNNModel(n_words, pos_vocab.n_words, use_pretrain=False).to(device)
     else:
-        model = RNNModel(n_words, pos_vocab.n_words).to(device)
+        model = RNNModel(n_words, pos_vocab.n_words, use_pretrain=False).to(device)
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
     if using_sub_model:
@@ -148,8 +148,10 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
 def main():
     if not debugging:
-        train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
-        dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
+        # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+        # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
+        train_file = "data/train"
+        dev_file = "data/dev"
         train_file_dir = "passage_train_proc.pt"
         dev_file_dir = "passage_dev_proc.pt"
         vocab_dir = "passage_vocab.pt"
@@ -166,7 +168,7 @@ def main():
 
 
 
-    reading_data = True
+    reading_data = False
 
     if reading_data:
         train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
