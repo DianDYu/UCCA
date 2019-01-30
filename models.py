@@ -48,13 +48,13 @@ class RNNModel(nn.Module):
         self.max_length = 70
 
         self.pretrained_vectors = use_pretrain
-        self.pretrained_vectors = False
+        # self.pretrained_vectors = False
 
         self.add_idx = False
 
         concat_size = self.input_size
 
-        self.concat_pos = False
+        self.concat_pos = True
         if self.concat_pos:
             concat_size += self.pos_emb_size
 
