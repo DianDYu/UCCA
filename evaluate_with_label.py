@@ -11,7 +11,7 @@ punc = string.punctuation
 terminal_tag = "Terminal"
 
 
-def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_passage, pos,
+def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent, dev_passage, pos,
                         pos_tensor, labels, label2index, ent):
     """
 
@@ -32,6 +32,10 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
     # print(ori_sent)
 
     create_by_leftmost = True
+
+    using_s_model = False
+    if not isinstance(s_model, str):
+        using_s_model = True
 
     max_recur = 5
     i = 0
@@ -121,7 +125,13 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
             for terminal_node in combine_list:
                 terminal_node_in_l1.add(terminal_tag, terminal_node)
             l1_node_list.append(terminal_node_in_l1)
-            node_encoding[terminal_node_in_l1] = output[i - 1] - output[left_most_idx]
+
+            if using_s_model:
+                output_boundary = output[left_most_idx: i]
+                node_encoding[terminal_node_in_l1] = s_model(output_boundary)
+            else:
+                node_encoding[terminal_node_in_l1] = output[i - 1] - output[left_most_idx]
+
             ck_node_encoding[terminal_node_in_l1] = [left_most_idx, i - 1]
 
             i -= 1
@@ -160,7 +170,12 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                 new_node = FoundationalNode(new_node_ID, passage, tag=layer1.NodeTags.Foundational)
                 """TODO: check this. not sure if it should be the left most child or top_k_ind"""
                 debug_left_most_id = get_left_most_id(parent_node)
-                new_node_enc = output[i] - output[debug_left_most_id]
+
+                if using_s_model:
+                    output_boundary = output[debug_left_most_id: i + 1]
+                    new_node_enc = s_model(output_boundary)
+                else:
+                    new_node_enc = output[i] - output[debug_left_most_id]
                 # new_node_enc = output[i] - output[get_left_most_id(parent_node)]
                 children = []
                 while True:
@@ -194,7 +209,13 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
 
         # recursive call to see if need to create new node
         for r in range(1, max_recur + 1):
-            new_node_output = output[i] - output[left_most_idx]
+
+            if using_s_model:
+                output_boundary = output[left_most_idx: i + 1]
+                new_node_output = s_model(output_boundary)
+            else:
+                new_node_output = output[i] - output[left_most_idx]
+
             new_node_attn_weight = a_model(new_node_output, output_2d, i)
             r_top_k_value, r_top_k_ind = torch.topk(new_node_attn_weight, 1)
             #predict out of boundary
@@ -212,7 +233,13 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent, dev_
                 new_node = FoundationalNode(new_node_ID, passage, tag=layer1.NodeTags.Foundational)
                 """TODO: same as before. check this. not sure if it should be the left most child or top_k_ind"""
                 debug_left_most_id = get_left_most_id(r_parent_node)
-                r_new_node_enc = output[i] - output[debug_left_most_id]
+
+                if using_s_model:
+                    output_boundary = output[debug_left_most_id: i + 1]
+                    r_new_node_enc = s_model(output_boundary)
+                else:
+                    r_new_node_enc = output[i] - output[debug_left_most_id]
+
                 # r_new_node_enc = output[i] - output[get_left_most_id(r_parent_node)]
                 children = []
                 while True:
@@ -293,7 +320,7 @@ def get_left_most_id(node):
     return int(index_in_l0) - 1
 
 
-def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_text, val_passages,
+def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, val_text, val_passages,
                             val_pos, val_pos_tensor, labels, label2index, val_ent, eval_type="unlabeled",
                             testing=False):
 
@@ -309,7 +336,7 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, val_te
         # print(tgt_passage.ID)
         # try:
         with torch.no_grad():
-            pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, ori_sent,
+            pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index, ent)
 
         # print(pred_passage)
