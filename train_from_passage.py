@@ -76,7 +76,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     # for each j attend to itself and for the whole, calculate a loss
                     # later need to also calculate a loss for an attending node on the same level (w/o parent)
                     for j in range(i, right_most_ner):
-                        attn_weight = a_model(output[j], output_2d, i)
+                        attn_weight = a_model(output[j], output_2d, j)
                         unit_loss += criterion(attn_weight, torch.tensor([j], dtype=torch.long, device=device))
                         unit_loss_num += 1
 
