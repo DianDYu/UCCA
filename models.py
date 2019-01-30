@@ -144,8 +144,8 @@ class SubModel(nn.Module):
     not sure how many directions and layers we need
     not sure the dimension needed for ner_mapping
     """
-    def __init__(self, vocab_size, pos_vocab_size, use_pretrain=True):
-        super(RNNModel, self).__init__()
+    def __init__(self):
+        super(SubModel, self).__init__()
         self.num_directions = 2
         self.hidden_size= 500
         self.input_size = 500
