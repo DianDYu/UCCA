@@ -174,6 +174,8 @@ class SubModel(nn.Module):
         output, hidden_final = self.lstm(input, self.hidden)
         # last_otuput should be of size (1, num_dir * hidden_size)
         last_output = output.squeeze(1)[-1]
+
+        # nodes combination prediction
         is_ner_prob = 0
         if layer0:
             h1 = self.linear(last_output)

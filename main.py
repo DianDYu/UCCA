@@ -22,6 +22,8 @@ label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
 
+debugging = False
+
 
 def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent):
     n_epoch = 300
@@ -31,7 +33,10 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     if not using_sub_model:
         s_model = s_model_optimizer = "sub_lstm_model"
 
-    model = RNNModel(n_words, pos_vocab.n_words).to(device)
+    if debugging:
+        model = RNNModel(n_words, pos_vocab.n_words, use_pretrain=False).to(device)
+    else:
+        model = RNNModel(n_words, pos_vocab.n_words).to(device)
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
     if using_sub_model:
@@ -50,15 +55,15 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_text, t_passages, t_pos, t_ent))
 
-    random.shuffle(training_data)
-
-    # validation
-    cr_training = training_data[:split_num]
-    cr_validaton = training_data[split_num:]
-
-    # debugging
-    # cr_training = training_data[:]
-    # cr_validaton = cr_training
+    if not debugging:
+        random.shuffle(training_data)
+        # validation
+        cr_training = training_data[:split_num]
+        cr_validaton = training_data[split_num:]
+    else:
+        # debugging
+        cr_training = training_data[:]
+        cr_validaton = cr_training
 
     sent_ids, train_text_tensor, train_text, train_passages, train_pos, train_ent = zip(*cr_training)
     val_ids, val_text_tensor, val_text, val_passages, val_pos, val_ent = zip(*cr_validaton)
@@ -77,7 +82,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         training_data = list(zip(sent_ids, train_text_tensor,
                                  train_text, train_passages, train_pos, train_pos_tensor, train_ent))
 
-        random.shuffle(training_data)
+        if not debugging:
+            random.shuffle(training_data)
 
         sent_ids, train_text_tensor, train_text, train_passages, train_pos,\
             train_pos_tensor, train_ent = zip(*training_data)
@@ -134,17 +140,24 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
 
 def main():
-    train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
-    dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-    # train_file = "check_training/000000.xml"
-    # dev_file = "check_evaluate/000000.xml"
-    # train_file = "sample_data/train"
-    # dev_file = "sample_data/dev"
+    if not debugging:
+        train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+        dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
+        train_file_dir = "passage_train_proc.pt"
+        dev_file_dir = "passage_dev_proc.pt"
+        vocab_dir = "passage_vocab.pt"
+        pos_vocab_dir = "passage_pos_vocab.pt"
+    else:
+        train_file = "check_training/000000.xml"
+        dev_file = "check_evaluate/000000.xml"
+        # train_file = "sample_data/train"
+        # dev_file = "sample_data/dev"
+        train_file_dir = "dbg_passage_train_proc.pt"
+        dev_file_dir = "dbg_passage_dev_proc.pt"
+        vocab_dir = "dbg_passage_vocab.pt"
+        pos_vocab_dir = "dbg_passage_pos_vocab.pt"
 
-    train_file_dir = "passage_train_proc.pt"
-    dev_file_dir = "passage_dev_proc.pt"
-    vocab_dir = "passage_vocab.pt"
-    pos_vocab_dir = "passage_pos_vocab.pt"
+
 
     reading_data = True
 
