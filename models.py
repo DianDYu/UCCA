@@ -60,11 +60,11 @@ class RNNModel(nn.Module):
         if self.concat_pos:
             concat_size += self.pos_emb_size
 
-        self.concat_ent = False
+        self.concat_ent = True
         if self.concat_ent:
             concat_size += self.ent_emb_size
 
-        self.concat_case = False
+        self.concat_case = True
         if self.concat_case:
             concat_size += self.case_emb_size
 
@@ -140,7 +140,7 @@ class RNNModel(nn.Module):
 
         if self.concat_case:
             case_emb = self.case_embedding(case_tensor)
-            concat_emb = torch.cat((concat_emb, case_emb))
+            concat_emb = torch.cat((concat_emb, case_emb), 2)
 
         if self.concat_idx:
             seq_len = input.size()[0]
