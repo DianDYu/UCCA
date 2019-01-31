@@ -15,7 +15,7 @@ predict_l1 = True
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
                     label_model, label_model_optimizer, s_model, s_model_optimizer,
-                    criterion, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor):
+                    criterion, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor, unroll):
 
     model_optimizer.zero_grad()
     a_model_optimizer.zero_grad()
@@ -36,7 +36,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     propn_loss = 0
     propn_loss_num = 0
 
-    output, hidden = model(sent_tensor, pos_tensor, ent_tensor, case_tensor)
+    output, hidden = model(sent_tensor, pos_tensor, ent_tensor, case_tensor, unroll)
     # output: (seq_len, batch, hidden_size)
     # output_2d: (seq_len, hidden_size)
     # assume batch_size = 1
@@ -68,7 +68,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
                 if using_s_model:
                     output_boundary = output[i: right_most_ner + 1]
-                    output_i, combine_l0 = s_model(output_boundary, layer0=True)
+                    if unroll and i > 0:
+                        output_i, combine_l0 = s_model(output_boundary, inp_hidden=hidden[i - 1], layer0=True)
+                    else:
+                        output_i, combine_l0 = s_model(output_boundary, layer0=True)
                 else:
                     output_i = output[right_most_ner] - output[i]
 
@@ -147,7 +150,12 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
                 if using_s_model:
                     output_boundary = output[left_most_child_idx: i + 1]
-                    primary_parent_encoding, combine_l0 = s_model(output_boundary, layer0=True)
+                    if unroll and left_most_child_idx > 0:
+                        primary_parent_encoding, combine_l0 = s_model(output_boundary,
+                                                                      inp_hidden=hidden[left_most_child_idx - 1],
+                                                                      layer0=True)
+                    else:
+                        primary_parent_encoding, combine_l0 = s_model(output_boundary, layer0=True)
                 else:
                     primary_parent_encoding = output_i - output[left_most_child_idx]
 
@@ -178,7 +186,11 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                         finding_left = get_child_idx_in_l0(child)
                         if using_s_model:
                             output_boundary = output[finding_left: finding_right + 1]
-                            child_encoding, combine_l0 = s_model(output_boundary)
+                            if unroll and finding_left > 0:
+                                child_encoding, combine_l0 = s_model(output_boundary,
+                                                                     inp_hidden=hidden[finding_left - 1])
+                            else:
+                                child_encoding, combine_l0 = s_model(output_boundary)
                         else:
                             child_encoding = output[finding_right] - output[finding_left]
 
