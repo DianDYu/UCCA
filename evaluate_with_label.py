@@ -507,7 +507,7 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
 
         # print(tgt_passage)
         if testing_phase:
-            ioutil.write_passage(pred_passage)
+            ioutil.write_passage(pred_passage, outdir=".pred_test/")
         else:
 
             labeled, unlabeled = get_score(pred_passage, tgt_passage, testing, eval_type)
