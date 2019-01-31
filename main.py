@@ -26,9 +26,9 @@ debugging = False
 use_embedding = False
 reading_data = True
 use_lowercase = True
-unroll = True
+unroll = False
 replace_digits = True
-testing_phase = False
+testing_phase = True
 
 print("is debugging: %s" % debugging)
 print("testing: %s" % testing_phase)
@@ -67,7 +67,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
     split_num = 3701
     # split_num = 52
-    train_dev_split = 4114
+    train_dev_split = 4113
 
     training_data = list(zip(t_sent_ids, t_text_tensor, t_text, t_passages, t_pos, t_ent, t_case))
 
