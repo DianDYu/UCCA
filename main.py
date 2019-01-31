@@ -23,7 +23,7 @@ for label in labels:
     label2index[label] = len(label2index)
 
 debugging = False
-use_embedding = False
+use_embedding = True
 reading_data = True
 use_lowercase = True
 unroll = False
