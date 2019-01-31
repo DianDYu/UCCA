@@ -106,15 +106,36 @@ def loading_data_passsage(file_dir):
         sent_pos, sent_ent, sent_head
 
 
+def clean_text(text_list):
+    lowercased = []
+    replaced = []
+    for sent in text_list:
+        lowercased.append([word.lower() for word in sent])
+    for sent in lowercased:
+        replaced.append([re.sub("\d", "0", word) for word in sent])
+
+    return replaced
+
+
 def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir, use_lowercase=False,
                             replace_digits=False):
     vocab = Vocab()
     train_text = get_text(train_passages)
     dev_text = get_text(dev_passages)
-    vocab = prepareData(vocab, train_text)
-    vocab = prepareData(vocab, dev_text)
-    train_text_tensor = [tensorFromSentence(vocab, sent) for sent in train_text]
-    dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in dev_text]
+
+    if use_lowercase and replace_digits:
+        mod_train_text = clean_text(train_text)
+        mod_dev_text = clean_text(dev_text)
+    else:
+        mod_train_text = train_text
+        mod_dev_text = dev_text
+
+    # print(mod_dev_text)
+
+    vocab = prepareData(vocab, mod_train_text)
+    vocab = prepareData(vocab, mod_dev_text)
+    train_text_tensor = [tensorFromSentence(vocab, sent) for sent in mod_train_text]
+    dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in mod_dev_text]
 
     for data_file_dir in (train_file_dir, dev_file_dir):
         mode = "training" if data_file_dir == train_file_dir else "testing"
@@ -135,11 +156,13 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
 
             case_info = [word[0].isupper() for word in ori_sent]
 
-            if use_lowercase:
-                ori_sent = [word.lower() for word in ori_sent]
+            # if use_lowercase:
+            #     ori_sent = [word.lower() for word in ori_sent]
+            #
+            # if replace_digits:
+            #     ori_sent = [re.sub("\d", "0", word) for word in ori_sent]
 
-            if replace_digits:
-                ori_sent = [re.sub("\d", "0", word) for word in ori_sent]
+            # print(ori_sent)
 
             new_line_data.append(sent_id)
             new_line_data.append(ori_sent)
