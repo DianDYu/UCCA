@@ -57,8 +57,12 @@ def get_ent_tensor(vocab, ent):
 
 
 def get_case_tensor(case):
-    case2idx = [1 if word_case else 0 for word_case in case]
-    return [torch.tensor(case_idx, dtype=torch.long, device=device).view(-1, 1) for case_idx in case2idx]
+    # case is a list of lists
+    case_tensor = []
+    for s_case in case:
+        s_case2idx = [1 if word_case else 0 for word_case in s_case]
+        case_tensor.append(torch.tensor(s_case2idx, dtype=torch.long, device=device).view(-1, 1))
+    return case_tensor
 
 
 def loading_data(file_dir):
