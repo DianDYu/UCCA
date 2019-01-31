@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-vocab_dir = "passage_vocab.pt"
+vocab_dir = "real_vocab.pt"
 embedding_dir = "/home/dianyu/Downloads/crawl-300d-2M.vec"
 # embedding_dir = "/home/dianyu/Downloads/wiki-news-300d-1M-subword.vec"
 # embedding_dir = "data/crawl-300d-2M-subword.vec"
