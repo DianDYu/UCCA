@@ -278,13 +278,17 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                         # make sure not to attend to a node with parents
                         for ck_node in combine_list:
-                            if len(ck_node.parents) > 0:
+                            # ck_node can be a combined node
+                            ck_node_l0 = l0_node_list[get_left_most_id(ck_node)]
+                            ck_node_l1 = ck_node_l0.parents[0]
+                            if len(ck_node_l1.parents) > 0:
                                 valid_attention = False
                                 break
                         # push back without change
                         if not valid_attention:
                             combined = False
-                            for ck_node in combine_list:
+                            # to be consistent with popping, we loop in the reverse order
+                            for ck_node in reversed(combine_list):
                                 l1_node_list.append(ck_node)
                         else:
                             combined = True
@@ -472,8 +476,10 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
             zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor, val_ent):
         # if len(ori_sent) > 70:
         #     print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
-        # print(tgt_passage.ID)
         # try:
+
+        # print(tgt_passage.ID)
+
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index, ent)
