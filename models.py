@@ -35,7 +35,7 @@ class Vocab():
 
 
 class RNNModel(nn.Module):
-    def __init__(self, vocab_size, pos_vocab_size, use_pretrain=True):
+    def __init__(self, vocab_size, pos_vocab_size, ent_vocab_size, use_pretrain=True):
         super(RNNModel, self).__init__()
         self.num_directions = 2
         self.hidden_size= 500
@@ -44,6 +44,8 @@ class RNNModel(nn.Module):
         self.dropout = 0.3
         self.batch_size = 1
         self.pos_emb_size = 20
+        self.ent_emb_size = 20
+        self.case_emb_size = 20
         self.idx_emb_size = 100
         self.max_length = 70
 
@@ -57,6 +59,14 @@ class RNNModel(nn.Module):
         self.concat_pos = True
         if self.concat_pos:
             concat_size += self.pos_emb_size
+
+        self.concat_ent = False
+        if self.concat_ent:
+            concat_size += self.ent_emb_size
+
+        self.concat_case = False
+        if self.concat_case:
+            concat_size += self.case_emb_size
 
         self.concat_idx = False
         if self.concat_idx:
@@ -75,6 +85,10 @@ class RNNModel(nn.Module):
 
         if self.concat_pos:
             self.pos_embedding = nn.Embedding(pos_vocab_size, self.pos_emb_size)
+        if self.concat_ent:
+            self.ent_embedding = nn.Embedding(ent_vocab_size, self.ent_emb_size)
+        if self.concat_case:
+            self.case_embedding = nn.Embedding(2, self.case_emb_size)
         if self.concat_idx:
             self.idx_embedding = nn.Embedding(self.max_length + 1, self.idx_emb_size)
 

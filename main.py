@@ -25,7 +25,7 @@ for label in labels:
 debugging = False
 
 
-def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent):
+def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent, ent_vocab):
     n_epoch = 300
     criterion = nn.NLLLoss()
 
