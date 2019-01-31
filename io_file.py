@@ -1,3 +1,5 @@
+import re
+
 import torch
 
 from ucca import ioutil
@@ -104,7 +106,8 @@ def loading_data_passsage(file_dir):
         sent_pos, sent_ent, sent_head
 
 
-def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir, use_lowercase=False):
+def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir, use_lowercase=False,
+                            replace_digits=False):
     vocab = Vocab()
     train_text = get_text(train_passages)
     dev_text = get_text(dev_passages)
@@ -133,7 +136,10 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
             case_info = [word[0].isupper() for word in ori_sent]
 
             if use_lowercase:
-                ori_sent = [sent.lower() for sent in ori_sent]
+                ori_sent = [word.lower() for word in ori_sent]
+
+            if replace_digits:
+                ori_sent = [re.sub("\d", "0", word) for word in ori_sent]
 
             new_line_data.append(sent_id)
             new_line_data.append(ori_sent)
