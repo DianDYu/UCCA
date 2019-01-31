@@ -5,28 +5,39 @@ from io_file import get_pos_tensor, loading_data, loading_data_passsage
 from evaluate_with_label import get_validation_accuracy
 from with_label import labels, label2index
 
-from io_file import read_passages, passage_loading_data, get_text, tensorFromSentence
+from io_file import read_passages, passage_loading_data, get_text, tensorFromSentence, get_ent_tensor, get_case_tensor
 
 torch.manual_seed(1)
 
 debugging = False
+testing_phase = False
+unroll = False
 
 # dev_file_dir = "dev_proc.pt"
 # # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/590021.xml"
 # vocab_dir = "vocab.pt"
 # pos_vocab_dir = "pos_vocab.pt"
 
-if not debugging:
+if testing_phase:
+    dev_file_dir = "real_testing.pt"
+    vocab_dir = "real_vocab.pt"
+    pos_vocab_dir = "real_pos_vocab.pt"
+    ent_vocab_dir = "real_ent_vocab.pt"
+    checkpoint_path = ""
+
+elif not debugging:
     dev_file_dir = "passage_dev_proc.pt"
     vocab_dir = "passage_vocab.pt"
     pos_vocab_dir = "passage_pos_vocab.pt"
-
+    ent_vocab_dir = "passage_ent_vocab.pt"
     checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_140.29.pt"
+
 else:
     # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/674005.xml"
     dev_file_dir = "dbg_passage_dev_proc.pt"
     vocab_dir = "dbg_passage_vocab.pt"
     pos_vocab_dir = "dbg_passage_pos_vocab.pt"
+    ent_vocab_dir = "dbg_passage_ent_vocab.pt"
 
     checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_140.29.pt"
 
@@ -75,8 +86,11 @@ def main():
     # dev_ids, dev_text, dev_text_tensor, dev_passages, dev_linearized, \
     #     dev_clean_linearized, dev_pos, dev_ent, dev_head = loading_data(dev_file_dir)
 
-    dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
-        dev_ent, dev_head = passage_loading_data(dev_file_dir)
+    # dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
+    #     dev_ent, dev_head = passage_loading_data(dev_file_dir)
+
+    dev_ids, dev_text, dev_text_tensor, dev_passages, \
+    dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
 
     # vocab = torch.load(vocab_dir)
 
@@ -87,16 +101,24 @@ def main():
     pos_vocab = torch.load(pos_vocab_dir)
     pos_tensor = get_pos_tensor(pos_vocab, dev_pos)
 
+    ent_vocab = torch.load(ent_vocab_dir)
+    ent_tensor = get_ent_tensor(ent_vocab, dev_ent)
+
+    case_tensor = get_case_tensor(dev_case)
+
     model_r, a_model_r, label_model_r, s_model_r = load_test_model(checkpoint_path)
 
     labeled_f1, unlabeled_f1 = get_validation_accuracy(dev_text_tensor, model_r, a_model_r,
                                                        label_model_r, s_model_r, dev_text, dev_passages,
                                                        dev_pos, pos_tensor, labels, label2index, dev_ent,
-                                                       eval_type="labeled", testing=False)
+                                                       ent_tensor, case_tensor, unroll,
+                                                       eval_type="labeled", testing=False, testing_phase=testing_phase)
 
     print("evaluated on %d passages" % len(dev_passages))
-    print("labeled F1: %.4f " % labeled_f1)
-    print("unlabeled F1: %.4f " % unlabeled_f1)
+
+    if not testing_phase:
+        print("labeled F1: %.4f " % labeled_f1)
+        print("unlabeled F1: %.4f " % unlabeled_f1)
 
 
 def read_ind_file(filename):
