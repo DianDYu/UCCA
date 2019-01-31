@@ -237,4 +237,4 @@ def save_test_model(model_e, a_model_e, label_model_e, s_model_e, n_words, pos_n
         'pos_vocab_size': pos_n_words,
         'ent_vocab_size': ent_n_words
     }
-    torch.save(checkpoint, "models/epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
+    torch.save(checkpoint, "models/real_epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
