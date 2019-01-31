@@ -35,7 +35,7 @@ class Vocab():
 
 
 class RNNModel(nn.Module):
-    def __init__(self, vocab_size, pos_vocab_size, ent_vocab_size, use_pretrain=True):
+    def __init__(self, vocab_size, pos_vocab_size, ent_vocab_size=0, use_pretrain=True):
         super(RNNModel, self).__init__()
         self.num_directions = 2
         self.hidden_size= 500
@@ -119,7 +119,7 @@ class RNNModel(nn.Module):
         else:
             return torch.zeros(4, self.batch_size, self.hidden_size, device=device)
 
-    def forward(self, input, pos_tensor):
+    def forward(self, input, pos_tensor, ent_tensor, case_tensor):
         # input should be of size seq_len, batch, input_size
         # pos_tensor: seq_len, batch, pos_emb_size
         # output: (seq_len, batch, num_directions * hidden_size). output feature for each time step
@@ -133,6 +133,14 @@ class RNNModel(nn.Module):
         if self.concat_pos:
             pos_emb = self.pos_embedding(pos_tensor)
             concat_emb = torch.cat((concat_emb, pos_emb), 2)
+
+        if self.concat_ent:
+            ent_emb = self.ent_embedding(ent_tensor)
+            concat_emb = torch.cat((concat_emb, ent_emb), 2)
+
+        if self.concat_case:
+            case_emb = self.case_embedding(case_tensor)
+            concat_emb = torch.cat((concat_emb, case_emb))
 
         if self.concat_idx:
             seq_len = input.size()[0]
