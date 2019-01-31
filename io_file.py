@@ -106,15 +106,22 @@ def loading_data_passsage(file_dir):
         sent_pos, sent_ent, sent_head
 
 
-def clean_text(text_list):
+def clean_text(text_list, use_lowercase, replace_digits):
+    if not use_lowercase and not replace_digits:
+        return text_list
+
     lowercased = []
     replaced = []
-    for sent in text_list:
-        lowercased.append([word.lower() for word in sent])
-    for sent in lowercased:
-        replaced.append([re.sub("\d", "0", word) for word in sent])
-
-    return replaced
+    if use_lowercase:
+        for sent in text_list:
+            lowercased.append([word.lower() for word in sent])
+    else:
+        lowercased = text_list
+    if replace_digits:
+        for sent in lowercased:
+            replaced.append([re.sub("\d", "0", word) for word in sent])
+        return replaced
+    return lowercased
 
 
 def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir, use_lowercase=False,
@@ -123,14 +130,8 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
     train_text = get_text(train_passages)
     dev_text = get_text(dev_passages)
 
-    if use_lowercase and replace_digits:
-        mod_train_text = clean_text(train_text)
-        mod_dev_text = clean_text(dev_text)
-    else:
-        mod_train_text = train_text
-        mod_dev_text = dev_text
-
-    # print(mod_dev_text)
+    mod_train_text = clean_text(train_text, use_lowercase, replace_digits)
+    mod_dev_text = clean_text(dev_text, use_lowercase, replace_digits)
 
     vocab = prepareData(vocab, mod_train_text)
     vocab = prepareData(vocab, mod_dev_text)
