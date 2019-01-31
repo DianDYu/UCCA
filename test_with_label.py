@@ -10,7 +10,7 @@ from io_file import read_passages, passage_loading_data, get_text, tensorFromSen
 torch.manual_seed(1)
 
 debugging = False
-testing_phase = False
+testing_phase = True
 unroll = False
 
 # dev_file_dir = "dev_proc.pt"
@@ -30,7 +30,7 @@ elif not debugging:
     vocab_dir = "passage_vocab.pt"
     pos_vocab_dir = "passage_pos_vocab.pt"
     ent_vocab_dir = "passage_ent_vocab.pt"
-    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_140.29.pt"
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_67.43.pt"
 
 else:
     # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/674005.xml"
@@ -39,7 +39,7 @@ else:
     pos_vocab_dir = "dbg_passage_pos_vocab.pt"
     ent_vocab_dir = "dbg_passage_ent_vocab.pt"
 
-    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_140.29.pt"
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_3_f1_14.26.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -59,9 +59,10 @@ def load_test_model(checkpoint_path):
 
     vocab_size = checkpoint['vocab_size']
     pos_vocab_size = checkpoint['pos_vocab_size']
+    ent_vocab_size = checkpoint['ent_vocab_size']
 
     print("Loading model parameters")
-    model = RNNModel(vocab_size, pos_vocab_size, use_pretrain=False)
+    model = RNNModel(vocab_size, pos_vocab_size, ent_vocab_size, use_pretrain=False)
     a_model = AModel()
     label_model = LabelModel(labels)
     s_model = SubModel()
