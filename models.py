@@ -119,7 +119,7 @@ class RNNModel(nn.Module):
         else:
             return torch.zeros(4, self.batch_size, self.hidden_size, device=device)
 
-    def forward(self, input, pos_tensor, ent_tensor, case_tensor):
+    def forward(self, input, pos_tensor, ent_tensor, case_tensor, unroll=False):
         # input should be of size seq_len, batch, input_size
         # pos_tensor: seq_len, batch, pos_emb_size
         # output: (seq_len, batch, num_directions * hidden_size). output feature for each time step
@@ -154,10 +154,24 @@ class RNNModel(nn.Module):
             ind_emb = self.idx_embedding(indices)
             concat_emb += ind_emb
 
-        if self.rnn_type == "LSTM":
-            output, hidden_final = self.lstm(concat_emb, self.hidden)
+        if not unroll:
+            if self.rnn_type == "LSTM":
+                output, hidden_final = self.lstm(concat_emb, self.hidden)
+            else:
+                output, hidden_final = self.gru(concat_emb, self.hidden)
         else:
-            output, hidden_final = self.gru(concat_emb, self.hidden)
+            # unroll to get the hidden state for each timestep as the initial hidden state
+            # for sub-lstm-model
+            output_all = []
+            hidden_all = []
+            current_hidden = self.hidden
+            for emb_i in concat_emb:
+                current_output, current_hidden = self.lstm(emb_i, current_hidden)
+                output_all.append(current_output)
+                hidden_all.append(current_hidden)
+            output = output_all
+            hidden_final = hidden_all
+
         return output, hidden_final
 
 

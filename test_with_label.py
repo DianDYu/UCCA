@@ -21,13 +21,14 @@ if not debugging:
     vocab_dir = "passage_vocab.pt"
     pos_vocab_dir = "passage_pos_vocab.pt"
 
-    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_34_f1_64.96.pt"
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_140.29.pt"
 else:
+    # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/674005.xml"
     dev_file_dir = "dbg_passage_dev_proc.pt"
     vocab_dir = "dbg_passage_vocab.pt"
     pos_vocab_dir = "dbg_passage_pos_vocab.pt"
 
-    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_300_f1_0.00.pt"
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_140.29.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
