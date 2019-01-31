@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch import optim
 
 from io_file import read_passages, passage_preprocess_data, passage_loading_data, prepare_pos_vocab, \
-    get_pos_tensor, save_test_model
+    get_pos_tensor, save_test_model, prepare_ent_vocab, get_ent_tensor, get_case_tensor
 from models import RNNModel, AModel, LabelModel, Vocab, SubModel
 from train_from_passage import train_f_passage
 from evaluate_with_label import get_validation_accuracy
@@ -25,7 +25,8 @@ for label in labels:
 debugging = False
 
 
-def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent, ent_vocab):
+def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent, ent_vocab,
+                        t_case):
     n_epoch = 300
     criterion = nn.NLLLoss()
 
@@ -34,9 +35,9 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         s_model = s_model_optimizer = "sub_lstm_model"
 
     if debugging:
-        model = RNNModel(n_words, pos_vocab.n_words, use_pretrain=False).to(device)
+        model = RNNModel(n_words, pos_vocab.n_words, ent_vocab.n_words, use_pretrain=False).to(device)
     else:
-        model = RNNModel(n_words, pos_vocab.n_words).to(device)
+        model = RNNModel(n_words, pos_vocab.n_words, ent_vocab.n_words).to(device)
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
     if using_sub_model:
@@ -53,7 +54,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     split_num = 3701
     # split_num = 52
 
-    training_data = list(zip(t_sent_ids, t_text_tensor, t_text, t_passages, t_pos, t_ent))
+    training_data = list(zip(t_sent_ids, t_text_tensor, t_text, t_passages, t_pos, t_ent, t_case))
 
     if not debugging:
         random.shuffle(training_data)
@@ -65,12 +66,18 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         cr_training = training_data[:]
         cr_validaton = cr_training
 
-    sent_ids, train_text_tensor, train_text, train_passages, train_pos, train_ent = zip(*cr_training)
-    val_ids, val_text_tensor, val_text, val_passages, val_pos, val_ent = zip(*cr_validaton)
+    sent_ids, train_text_tensor, train_text, train_passages, train_pos, train_ent, train_case = zip(*cr_training)
+    val_ids, val_text_tensor, val_text, val_passages, val_pos, val_ent, val_case = zip(*cr_validaton)
 
     # prepare pos tagging data
     train_pos_tensor = get_pos_tensor(pos_vocab, train_pos)
     val_pos_tensor = get_pos_tensor(pos_vocab, val_pos)
+
+    train_ent_tensor = get_ent_tensor(ent_vocab, train_ent)
+    val_ent_tensor = get_ent_tensor(ent_vocab, val_ent)
+
+    train_case_tensor = get_case_tensor(train_case)
+    val_case_tensor = get_case_tensor(val_case)
 
     for epoch in range(1, n_epoch + 1):
         start_i = time.time()
@@ -80,13 +87,14 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         num = 0
 
         training_data = list(zip(sent_ids, train_text_tensor,
-                                 train_text, train_passages, train_pos, train_pos_tensor, train_ent))
+                                 train_text, train_passages, train_pos, train_pos_tensor, train_ent,
+                                 train_ent_tensor, train_case_tensor))
 
         if not debugging:
             random.shuffle(training_data)
 
         sent_ids, train_text_tensor, train_text, train_passages, train_pos,\
-            train_pos_tensor, train_ent = zip(*training_data)
+            train_pos_tensor, train_ent, train_case = zip(*training_data)
 
         model.train()
         a_model.train()
@@ -94,8 +102,9 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         if using_sub_model:
             s_model.train()
 
-        for sent_id, sent_tensor, train_passage, ori_sent, pos, pos_tensor, ent in \
-                zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor, train_ent):
+        for sent_id, sent_tensor, train_passage, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor in \
+                zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor,
+                    train_ent, train_ent_tensor, train_case_tensor):
 
             # debugging
             # print(train_passage.layers)
@@ -104,7 +113,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 try:
                     loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                            a_model_optimizer, label_model, label_model_optimizer, s_model,
-                                           s_model_optimizer, criterion, ori_sent, pos, pos_tensor)
+                                           s_model_optimizer, criterion, ori_sent, pos, pos_tensor, ent,
+                                           ent_tensor, case_tensor)
                     total_loss += loss
                     num += 1
                 except Exception as e:
@@ -112,7 +122,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             else:
                 loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                        a_model_optimizer, label_model, label_model_optimizer, s_model,
-                                       s_model_optimizer, criterion, ori_sent, pos, pos_tensor)
+                                       s_model_optimizer, criterion, ori_sent, pos, pos_tensor, ent,
+                                       ent_tensor, case_tensor)
                 total_loss += loss
                 num += 1
 
@@ -130,32 +141,35 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             s_model.eval()
 
         labeled_f1, unlabeled_f1 = get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model,
-                                                           val_text,val_passages, val_pos, val_pos_tensor, labels,
-                                                           label2index, val_ent, eval_type="labeled")
+                                                           val_text, val_passages, val_pos, val_pos_tensor, labels,
+                                                           label2index, val_ent, val_ent_tensor,
+                                                           val_case_tensor, eval_type="labeled")
         print("validation f1 labeled: %.4f" % labeled_f1)
         print("validation f1 unlabeled: %.4f" % unlabeled_f1)
         print()
 
         if labeled_f1 > best_score:
             best_score = labeled_f1
-            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
+            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
+                            epoch, labeled_f1)
 
         # save last model
         if epoch == n_epoch:
-            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, epoch, labeled_f1)
-
+            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
+                            epoch, labeled_f1)
 
 
 def main():
     if not debugging:
-        # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
-        # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-        train_file = "data/train"
-        dev_file = "data/dev"
+        train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+        dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
+        # train_file = "data/train"
+        # dev_file = "data/dev"
         train_file_dir = "passage_train_proc.pt"
         dev_file_dir = "passage_dev_proc.pt"
         vocab_dir = "passage_vocab.pt"
         pos_vocab_dir = "passage_pos_vocab.pt"
+        ent_vocab_dir = "passage_ent_vocab.pt"
     else:
         train_file = "check_training/000000.xml"
         dev_file = "check_evaluate/000000.xml"
@@ -165,29 +179,33 @@ def main():
         dev_file_dir = "dbg_passage_dev_proc.pt"
         vocab_dir = "dbg_passage_vocab.pt"
         pos_vocab_dir = "dbg_passage_pos_vocab.pt"
+        ent_vocab_dir = "dbg_passage_ent_vocab.pt"
 
 
 
-    reading_data = False
+    reading_data = True
+    use_lowercase = False
 
     if reading_data:
         train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
         # ignore_list = error_list + too_long_list
-        passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir)
+        passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_file_dir, vocab_dir, use_lowercase)
 
     """loading data"""
     train_ids, train_text, train_text_tensor, train_passages,\
-    train_pos, train_ent, train_head = passage_loading_data(train_file_dir)
+    train_pos, train_ent, train_head, train_case = passage_loading_data(train_file_dir)
     dev_ids, dev_text, dev_text_tensor, dev_passages,\
-    dev_pos, dev_ent, dev_head = passage_loading_data(dev_file_dir)
+    dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
 
     prepare_pos_vocab(train_pos, dev_pos, pos_vocab_dir)
+    prepare_ent_vocab(train_ent, dev_ent, ent_vocab_dir)
 
     vocab = torch.load(vocab_dir)
     pos_vocab = torch.load(pos_vocab_dir)
+    ent_vocab = torch.load(ent_vocab_dir)
 
     passage_train_iters(vocab.n_words, train_text_tensor, train_text, train_ids, train_pos, train_passages, pos_vocab,
-                        train_ent)
+                        train_ent, ent_vocab, dev_case)
 
 
 if __name__ == "__main__":
