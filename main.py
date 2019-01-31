@@ -25,7 +25,7 @@ for label in labels:
 debugging = False
 use_embedding = True
 reading_data = True
-use_lowercase = True
+use_lowercase = False
 unroll = False
 replace_digits = True
 testing_phase = True
