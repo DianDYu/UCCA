@@ -126,7 +126,7 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
 
             num_sents += 1
 
-            case_info = [word[0].isupper() for word in ori_sent.split()]
+            case_info = [word[0].isupper() for word in ori_sent]
 
             if use_lowercase:
                 ori_sent = ori_sent.lower()
