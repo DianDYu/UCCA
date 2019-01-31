@@ -23,6 +23,11 @@ for label in labels:
     label2index[label] = len(label2index)
 
 debugging = False
+use_embedding = True
+reading_data = True
+use_lowercase = False
+
+print("Is debugging: %s" % str(debugging))
 
 
 def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent, ent_vocab,
@@ -37,7 +42,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     if debugging:
         model = RNNModel(n_words, pos_vocab.n_words, ent_vocab.n_words, use_pretrain=False).to(device)
     else:
-        model = RNNModel(n_words, pos_vocab.n_words, ent_vocab.n_words).to(device)
+        model = RNNModel(n_words, pos_vocab.n_words, ent_vocab.n_words, use_pretrain=use_embedding).to(device)
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
     if using_sub_model:
@@ -61,6 +66,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         # validation
         cr_training = training_data[:split_num]
         cr_validaton = training_data[split_num:]
+        print("num of training: %d" % len(cr_training))
+        print("num of validation: %d" % len(cr_validaton))
     else:
         # debugging
         cr_training = training_data[:]
@@ -94,7 +101,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             random.shuffle(training_data)
 
         sent_ids, train_text_tensor, train_text, train_passages, train_pos,\
-            train_pos_tensor, train_ent, train_case = zip(*training_data)
+            train_pos_tensor, train_ent, train_ent_tensor, train_case = zip(*training_data)
 
         model.train()
         a_model.train()
@@ -171,20 +178,17 @@ def main():
         pos_vocab_dir = "passage_pos_vocab.pt"
         ent_vocab_dir = "passage_ent_vocab.pt"
     else:
-        train_file = "check_training/000000.xml"
-        dev_file = "check_evaluate/000000.xml"
-        # train_file = "sample_data/train"
-        # dev_file = "sample_data/dev"
+        # train_file = "check_training/000000.xml"
+        # dev_file = "check_evaluate/000000.xml"
+        # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
+        # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
+        train_file = "sample_data/train"
+        dev_file = "sample_data/dev"
         train_file_dir = "dbg_passage_train_proc.pt"
         dev_file_dir = "dbg_passage_dev_proc.pt"
         vocab_dir = "dbg_passage_vocab.pt"
         pos_vocab_dir = "dbg_passage_pos_vocab.pt"
         ent_vocab_dir = "dbg_passage_ent_vocab.pt"
-
-
-
-    reading_data = True
-    use_lowercase = False
 
     if reading_data:
         train_passages, dev_passages = [list(read_passages(filename)) for filename in (train_file, dev_file)]
@@ -205,7 +209,7 @@ def main():
     ent_vocab = torch.load(ent_vocab_dir)
 
     passage_train_iters(vocab.n_words, train_text_tensor, train_text, train_ids, train_pos, train_passages, pos_vocab,
-                        train_ent, ent_vocab, dev_case)
+                        train_ent, ent_vocab, train_case)
 
 
 if __name__ == "__main__":
