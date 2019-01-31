@@ -12,6 +12,8 @@ random.seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+use_both_ends = False
+print("use both ends: %s" % use_both_ends)
 
 class Vocab():
     def __init__(self):
@@ -203,6 +205,9 @@ class SubModel(nn.Module):
         self.linear = nn.Linear(500, 100)
         self.ner_mapping = nn.Linear(100, 2)
 
+        if use_both_ends == True:
+            self.reduce_linear = nn.Linear(1000, 500)
+
     def init_hidden(self):
         # h_0: (num_layers * num_directions, batch, hidden_size)
         # c_0: (num_layers * num_directions, batch, hidden_size)
@@ -212,11 +217,16 @@ class SubModel(nn.Module):
     def forward(self, input, inp_hidden="input_hidden", layer0=False):
         if isinstance(inp_hidden, str):
             inp_hidden = self.hidden
+
         output, hidden_final = self.lstm(input, inp_hidden)
         # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
 
         # added_output = output[0] + output[-1]
-        added_output = output[-1]
+        if use_both_ends:
+            concat_output = torch.cat((output[0], output[1]), 1)
+            added_output = F.relu(self.reduce_linear(concat_output))
+        else:
+            added_output = output[-1]
 
         # nodes combination prediction
         is_ner_prob = 0
