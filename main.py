@@ -25,7 +25,7 @@ for label in labels:
 debugging = False
 use_embedding = True
 reading_data = True
-use_lowercase = False
+use_lowercase = True
 
 print("Is debugging: %s" % str(debugging))
 
@@ -101,7 +101,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             random.shuffle(training_data)
 
         sent_ids, train_text_tensor, train_text, train_passages, train_pos,\
-            train_pos_tensor, train_ent, train_ent_tensor, train_case = zip(*training_data)
+            train_pos_tensor, train_ent, train_ent_tensor, train_case_tensor = zip(*training_data)
 
         model.train()
         a_model.train()
