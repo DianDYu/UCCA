@@ -198,16 +198,18 @@ class SubModel(nn.Module):
             inp_hidden = self.hidden
         output, hidden_final = self.lstm(input, inp_hidden)
         # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
+
         last_output = output[-1]
+        added_output = output[0] + last_output
 
         # nodes combination prediction
         is_ner_prob = 0
         if layer0:
-            h1 = self.linear(last_output)
+            h1 = self.linear(added_output)
             h2 = self.ner_mapping(F.relu(h1))
             is_ner_prob = F.log_softmax(h2, dim=1)
 
-        return last_output, is_ner_prob
+        return added_output, is_ner_prob
 
 
 class AModel(nn.Module):
