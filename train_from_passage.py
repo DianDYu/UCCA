@@ -15,7 +15,7 @@ predict_l1 = True
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
                     label_model, label_model_optimizer, s_model, s_model_optimizer,
-                    criterion, ori_sent, pos, pos_tensor):
+                    criterion, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor):
 
     model_optimizer.zero_grad()
     a_model_optimizer.zero_grad()
@@ -36,7 +36,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     propn_loss = 0
     propn_loss_num = 0
 
-    output, hidden = model(sent_tensor, pos_tensor)
+    output, hidden = model(sent_tensor, pos_tensor, ent_tensor, case_tensor)
     # output: (seq_len, batch, hidden_size)
     # output_2d: (seq_len, hidden_size)
     # assume batch_size = 1
