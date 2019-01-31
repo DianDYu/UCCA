@@ -213,8 +213,7 @@ class SubModel(nn.Module):
         output, hidden_final = self.lstm(input, inp_hidden)
         # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
 
-        last_output = output[-1]
-        added_output = output[0] + last_output
+        added_output = output[0] + output[-1]
 
         # nodes combination prediction
         is_ner_prob = 0
