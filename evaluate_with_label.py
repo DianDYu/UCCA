@@ -14,7 +14,7 @@ predict_l1 = True
 
 
 def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent, dev_passage, pos,
-                        pos_tensor, labels, label2index, ent):
+                        pos_tensor, labels, label2index, ent, ent_tensor, case_tensor):
     """
 
     :param sent_tensor:
@@ -47,7 +47,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
     node_encoding = {}
     ck_node_encoding = {}
 
-    output, hidden = model(sent_tensor, pos_tensor)
+    output, hidden = model(sent_tensor, pos_tensor, ent_tensor, case_tensor)
 
     output_2d = output.squeeze(1)
 
@@ -464,7 +464,8 @@ def get_left_most_id(node):
 
 
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, val_text, val_passages,
-                            val_pos, val_pos_tensor, labels, label2index, val_ent, eval_type="unlabeled",
+                            val_pos, val_pos_tensor, labels, label2index, val_ent, val_ent_tensor,
+                            val_case_tensor, eval_type="unlabeled",
                             testing=False):
 
     total_labeled = (total_matches_l, total_guessed_l, total_ref_l) = (0, 0, 0)
@@ -472,8 +473,9 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
 
     top_10_to_writeout = 10
 
-    for sent_tensor, ori_sent, tgt_passage, pos, pos_tensor, ent in \
-            zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor, val_ent):
+    for sent_tensor, ori_sent, tgt_passage, pos, pos_tensor, ent, ent_tensor, case_tensor in \
+            zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor, val_ent, val_ent_tensor,
+                val_case_tensor):
         # if len(ori_sent) > 70:
         #     print("sent %s is too long with %d words" % (tgt_passage.ID, len(ori_sent)))
         # try:
@@ -482,7 +484,8 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
 
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent,
-                                               tgt_passage, pos, pos_tensor, labels, label2index, ent)
+                                               tgt_passage, pos, pos_tensor, labels, label2index, ent,
+                                               ent_tensor, case_tensor)
 
         # print(tgt_passage)
 
