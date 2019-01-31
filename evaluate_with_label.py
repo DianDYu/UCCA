@@ -484,7 +484,7 @@ def get_left_most_id(node):
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, val_text, val_passages,
                             val_pos, val_pos_tensor, labels, label2index, val_ent, val_ent_tensor,
                             val_case_tensor, unroll, eval_type="unlabeled",
-                            testing=False):
+                            testing=False, testing_phase=False):
 
     total_labeled = (total_matches_l, total_guessed_l, total_ref_l) = (0, 0, 0)
     total_unlabeled = (total_guessed_un, total_guessed_un, total_ref_un) = (0, 0, 0)
@@ -506,18 +506,24 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
                                                ent_tensor, case_tensor, unroll)
 
         # print(tgt_passage)
-
-        labeled, unlabeled = get_score(pred_passage, tgt_passage, testing, eval_type)
-
-        total_labeled = tuple(map(operator.add, total_labeled, labeled))
-        total_unlabeled = tuple(map(operator.add, total_unlabeled, unlabeled))
-
-        if top_10_to_writeout < 10:
+        if testing_phase:
             ioutil.write_passage(pred_passage)
-            top_10_to_writeout += 1
+        else:
+
+            labeled, unlabeled = get_score(pred_passage, tgt_passage, testing, eval_type)
+
+            total_labeled = tuple(map(operator.add, total_labeled, labeled))
+            total_unlabeled = tuple(map(operator.add, total_unlabeled, unlabeled))
+
+            if top_10_to_writeout < 10:
+                ioutil.write_passage(pred_passage)
+                top_10_to_writeout += 1
 
         # except Exception as e:
         #     print("Error: %s in passage: %s" % (e, tgt_passage.ID))
+
+    if testing_phase:
+        return 100, 100
 
     labeled_f1 = calculate_f1(total_labeled[0], total_labeled[1], total_labeled[2])
     unlabeled_f1 = calculate_f1(total_unlabeled[0], total_unlabeled[1], total_unlabeled[2])
