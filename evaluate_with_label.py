@@ -14,7 +14,7 @@ predict_l1 = True
 
 
 def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent, dev_passage, pos,
-                        pos_tensor, labels, label2index, ent, ent_tensor, case_tensor):
+                        pos_tensor, labels, label2index, ent, ent_tensor, case_tensor, unroll):
     """
 
     :param sent_tensor:
@@ -47,7 +47,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
     node_encoding = {}
     ck_node_encoding = {}
 
-    output, hidden = model(sent_tensor, pos_tensor, ent_tensor, case_tensor)
+    output, hidden = model(sent_tensor, pos_tensor, ent_tensor, case_tensor, unroll)
 
     output_2d = output.squeeze(1)
 
@@ -133,7 +133,11 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                 if using_s_model:
                     output_boundary = output[left_most_idx: i]
-                    node_encoding[terminal_node_in_l1], combine_l0 = s_model(output_boundary)
+                    if unroll and left_most_idx > 0:
+                        node_encoding[terminal_node_in_l1], combine_l0 = s_model(output_boundary,
+                                                                                 inp_hidden=hidden[left_most_idx - 1])
+                    else:
+                        node_encoding[terminal_node_in_l1], combine_l0 = s_model(output_boundary)
                 else:
                     node_encoding[terminal_node_in_l1] = output[i - 1] - output[left_most_idx]
 
@@ -178,7 +182,11 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                     if using_s_model:
                         output_boundary = output[debug_left_most_id: i + 1]
-                        new_node_enc, combine_l0 = s_model(output_boundary)
+                        if unroll and debug_left_most_id > 0:
+                            new_node_enc, combine_l0 = s_model(output_boundary,
+                                                               inp_hidden=hidden[debug_left_most_id - 1])
+                        else:
+                            new_node_enc, combine_l0 = s_model(output_boundary)
                     else:
                         new_node_enc = output[i] - output[debug_left_most_id]
                     # new_node_enc = output[i] - output[get_left_most_id(parent_node)]
@@ -250,7 +258,11 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                 if using_s_model:
                     output_boundary = output[debug_left_most_id: i + 1]
-                    new_node_enc, combine_l0 = s_model(output_boundary, layer0=True)
+                    if unroll and debug_left_most_id > 0:
+                        new_node_enc, combine_l0 = s_model(output_boundary, inp_hidden=hidden[debug_left_most_id - 1],
+                                                           layer0=True)
+                    else:
+                        new_node_enc, combine_l0 = s_model(output_boundary, layer0=True)
                 else:
                     new_node_enc = output[i] - output[debug_left_most_id]
 
@@ -355,7 +367,10 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
             if using_s_model:
                 output_boundary = output[left_most_idx: i + 1]
-                new_node_output, combine_l0 = s_model(output_boundary)
+                if unroll and left_most_idx > 0:
+                    new_node_output, combine_l0 = s_model(output_boundary, inp_hidden=hidden[left_most_idx - 1])
+                else:
+                    new_node_output, combine_l0 = s_model(output_boundary)
             else:
                 new_node_output = output[i] - output[left_most_idx]
 
@@ -379,7 +394,10 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_s
 
                 if using_s_model:
                     output_boundary = output[debug_left_most_id: i + 1]
-                    r_new_node_enc, combine_l0 = s_model(output_boundary)
+                    if unroll and debug_left_most_id > 0:
+                        r_new_node_enc, combine_l0 = s_model(output_boundary, inp_hidden=hidden[debug_left_most_id - 1])
+                    else:
+                        r_new_node_enc, combine_l0 = s_model(output_boundary)
                 else:
                     r_new_node_enc = output[i] - output[debug_left_most_id]
 
@@ -465,7 +483,7 @@ def get_left_most_id(node):
 
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, val_text, val_passages,
                             val_pos, val_pos_tensor, labels, label2index, val_ent, val_ent_tensor,
-                            val_case_tensor, eval_type="unlabeled",
+                            val_case_tensor, unroll, eval_type="unlabeled",
                             testing=False):
 
     total_labeled = (total_matches_l, total_guessed_l, total_ref_l) = (0, 0, 0)
@@ -485,7 +503,7 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index, ent,
-                                               ent_tensor, case_tensor)
+                                               ent_tensor, case_tensor, unroll)
 
         # print(tgt_passage)
 
