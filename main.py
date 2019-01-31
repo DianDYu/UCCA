@@ -27,7 +27,7 @@ use_embedding = True
 reading_data = True
 use_lowercase = False
 unroll = False
-replace_digits = True
+replace_digits = False
 testing_phase = True
 
 print("is debugging: %s" % debugging)
@@ -204,12 +204,12 @@ def main():
         pos_vocab_dir = "passage_pos_vocab.pt"
         ent_vocab_dir = "passage_ent_vocab.pt"
     else:
-        # train_file = "check_training/000000.xml"
-        # dev_file = "check_evaluate/000000.xml"
+        train_file = "check_training/000000.xml"
+        dev_file = "check_evaluate/000000.xml"
         # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
         # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-        train_file = "sample_data/train"
-        dev_file = "sample_data/dev"
+        # train_file = "sample_data/train"
+        # dev_file = "sample_data/dev"
         train_file_dir = "dbg_passage_train_proc.pt"
         dev_file_dir = "dbg_passage_dev_proc.pt"
         vocab_dir = "dbg_passage_vocab.pt"
