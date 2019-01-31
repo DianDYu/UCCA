@@ -117,7 +117,7 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
     dev_text_tensor = [tensorFromSentence(vocab, sent) for sent in dev_text]
 
     for data_file_dir in (train_file_dir, dev_file_dir):
-        mode = "training" if data_file_dir == train_file_dir else "dev"
+        mode = "training" if data_file_dir == train_file_dir else "testing"
 
         num_sents = 0
 
