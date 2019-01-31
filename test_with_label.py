@@ -23,14 +23,18 @@ if testing_phase:
     vocab_dir = "real_vocab.pt"
     pos_vocab_dir = "real_pos_vocab.pt"
     ent_vocab_dir = "real_ent_vocab.pt"
-    checkpoint_path = ""
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/real_epoch_1_f1_70.12.pt"
 
 elif not debugging:
-    dev_file_dir = "passage_dev_proc.pt"
-    vocab_dir = "passage_vocab.pt"
-    pos_vocab_dir = "passage_pos_vocab.pt"
-    ent_vocab_dir = "passage_ent_vocab.pt"
-    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_1_f1_67.43.pt"
+    # dev_file_dir = "passage_dev_proc.pt"
+    # vocab_dir = "passage_vocab.pt"
+    # pos_vocab_dir = "passage_pos_vocab.pt"
+    # ent_vocab_dir = "passage_ent_vocab.pt"
+    dev_file_dir = "real_testing.pt"
+    vocab_dir = "real_vocab.pt"
+    pos_vocab_dir = "real_pos_vocab.pt"
+    ent_vocab_dir = "real_ent_vocab.pt"
+    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_22_f1_73.60.pt"
 
 else:
     # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/674005.xml"
@@ -97,7 +101,7 @@ def main():
 
     # test individual
     # dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
-    #     dev_ent, dev_head = read_ind_file(dev_file_dir)
+    #     dev_ent, dev_head, dev_case = read_ind_file("/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/")
 
     pos_vocab = torch.load(pos_vocab_dir)
     pos_tensor = get_pos_tensor(pos_vocab, dev_pos)
@@ -113,7 +117,7 @@ def main():
                                                        label_model_r, s_model_r, dev_text, dev_passages,
                                                        dev_pos, pos_tensor, labels, label2index, dev_ent,
                                                        ent_tensor, case_tensor, unroll,
-                                                       eval_type="labeled", testing=False, testing_phase=testing_phase)
+                                                       eval_type="labeled", testing=True, testing_phase=testing_phase)
 
     print("evaluated on %d passages" % len(dev_passages))
 
@@ -124,7 +128,7 @@ def main():
 
 def read_ind_file(filename):
     sent_ids, data_text, data_text_tensor, passages, sent_pos, \
-    sent_ent, sent_head = [], [], [], [], [], [], []
+    sent_ent, sent_head, sent_case = [], [], [], [], [], [], [], []
 
     dev_passages = list(read_passages(filename))
 
@@ -136,15 +140,19 @@ def read_ind_file(filename):
         sent_id = sent_passage.ID
         l0 = sent_passage.layer("0")
 
+        case_info = [word[0].isupper() for word in ori_sent]
+
         sent_ids.append(sent_id)
         data_text.append(ori_sent)
         data_text_tensor.append(sent_tensor)
         passages.append(sent_passage)
         sent_pos.append([node.extra["pos"] for node in l0.all])
-        sent_ent.append([node.extra["ent_type"] for node in l0.all])
+        sent_ent.append([node.extra["ent_type"] if len(node.extra["ent_type"]) > 0
+                                  else "NA" for node in l0.all])
         sent_head.append([node.extra["head"] for node in l0.all])
+        sent_case.append(case_info)
 
-    return sent_ids, data_text, data_text_tensor, passages, sent_pos, sent_ent, sent_head
+    return sent_ids, data_text, data_text_tensor, passages, sent_pos, sent_ent, sent_head, sent_case
 
 
 if __name__ == "__main__":
