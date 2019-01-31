@@ -165,11 +165,13 @@ class RNNModel(nn.Module):
             output_all = []
             hidden_all = []
             current_hidden = self.hidden
-            for emb_i in concat_emb:
+            assert concat_emb.size()[0] == len(input), "wrong embedding indexing"
+            for i in range(len(input)):
+                emb_i = concat_emb.index_select(0, torch.tensor([i], dtype=torch.long, device=device))
                 current_output, current_hidden = self.lstm(emb_i, current_hidden)
                 output_all.append(current_output)
                 hidden_all.append(current_hidden)
-            output = output_all
+            output = torch.cat(output_all, 0)
             hidden_final = hidden_all
 
         return output, hidden_final
@@ -213,7 +215,8 @@ class SubModel(nn.Module):
         output, hidden_final = self.lstm(input, inp_hidden)
         # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
 
-        added_output = output[0] + output[-1]
+        # added_output = output[0] + output[-1]
+        added_output = output[-1]
 
         # nodes combination prediction
         is_ner_prob = 0
