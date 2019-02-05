@@ -1,5 +1,7 @@
 import re
 
+from tqdm import tqdm
+
 import torch
 
 from ucca import ioutil
@@ -148,7 +150,7 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
                 else (dev_text_tensor, dev_passages, dev_text)
         data_list = []
 
-        for sent_tensor, sent_passage, ori_sent in zip(data_text_tensor, data_passages, data_text):
+        for sent_tensor, sent_passage, ori_sent in tqdm(zip(data_text_tensor, data_passages, data_text)):
             new_line_data = []
             sent_id = sent_passage.ID
             l0 = sent_passage.layer("0")
@@ -237,4 +239,4 @@ def save_test_model(model_e, a_model_e, label_model_e, s_model_e, n_words, pos_n
         'pos_vocab_size': pos_n_words,
         'ent_vocab_size': ent_n_words
     }
-    torch.save(checkpoint, "models/real_epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
+    torch.save(checkpoint, "models/20k_epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
