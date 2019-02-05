@@ -30,6 +30,8 @@ unroll = False
 replace_digits = False
 testing_phase = True
 
+print("using seed 1")
+print("English-20k")
 print("is debugging: %s" % debugging)
 print("testing: %s" % testing_phase)
 print("use_embedding: %s" % use_embedding)
@@ -186,13 +188,22 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
 def main():
     if testing_phase:
+        # train_file = "/home/dianyu/Desktop/P/UCCA/real_data/training/UCCA_English-Wiki/"
+        # dev_file = "/home/dianyu/Desktop/P/UCCA/test_data/"
+        # train_file_dir = "real_training.pt"
+        # dev_file_dir = "real_testing.pt"
+        # vocab_dir = "real_vocab.pt"
+        # pos_vocab_dir = "real_pos_vocab.pt"
+        # ent_vocab_dir = "real_ent_vocab.pt"
+
+        # 20k data
         train_file = "/home/dianyu/Desktop/P/UCCA/real_data/training/UCCA_English-Wiki/"
-        dev_file = "/home/dianyu/Desktop/P/UCCA/test_data/"
-        train_file_dir = "real_training.pt"
-        dev_file_dir = "real_testing.pt"
-        vocab_dir = "real_vocab.pt"
-        pos_vocab_dir = "real_pos_vocab.pt"
-        ent_vocab_dir = "real_ent_vocab.pt"
+        dev_file = "/home/dianyu/Downloads/UCCA_English-20K-master/xml"
+        train_file_dir = "20k_real_training.pt"
+        dev_file_dir = "20k_real_testing.pt"
+        vocab_dir = "20k_real_vocab.pt"
+        pos_vocab_dir = "20k_real_pos_vocab.pt"
+        ent_vocab_dir = "20k_real_ent_vocab.pt"
     elif not debugging:
         train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
         dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
