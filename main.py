@@ -15,6 +15,8 @@ from evaluate_with_label import get_validation_accuracy
 torch.manual_seed(1)
 random.seed(1)
 
+logger = logging.getLogger(__name__)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
@@ -23,23 +25,22 @@ label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
 
-debugging = False
+debugging = True
 use_embedding = True
 reading_data = True
 use_lowercase = False
 unroll = False
 replace_digits = False
-testing_phase = True
+testing_phase = False
 
-print("using seed 1")
-print("English-20k")
-print("is debugging: %s" % debugging)
-print("testing: %s" % testing_phase)
-print("use_embedding: %s" % use_embedding)
-print("reading_data: %s" % reading_data)
-print("use_lowercase: %s" % use_lowercase)
-print("unroll: %s" % unroll)
-print("replace_digits: %s" % replace_digits)
+logger.info("using seed 1")
+logger.info("is debugging: %s" % debugging)
+logger.info("testing: %s" % testing_phase)
+logger.info("use_embedding: %s" % use_embedding)
+logger.info("reading_data: %s" % reading_data)
+logger.info("use_lowercase: %s" % use_lowercase)
+logger.info("unroll: %s" % unroll)
+logger.info("replace_digits: %s" % replace_digits)
 
 
 def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent, ent_vocab,
@@ -77,15 +78,15 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     if testing_phase:
         cr_training = training_data[:train_dev_split]
         cr_validaton = training_data[train_dev_split:]
-        print("num of training: %d" % len(cr_training))
-        print("num of dev: %d" % len(cr_validaton))
+        logger.info("num of training: %d" % len(cr_training))
+        logger.info("num of dev: %d" % len(cr_validaton))
     elif not debugging:
         # random.shuffle(training_data)
         # validation
         cr_training = training_data[:split_num]
         cr_validaton = training_data[split_num:]
-        print("num of training: %d" % len(cr_training))
-        print("num of validation: %d" % len(cr_validaton))
+        logger.info("num of training: %d" % len(cr_training))
+        logger.info("num of validation: %d" % len(cr_validaton))
     else:
         # debugging
         cr_training = training_data[:]
@@ -146,7 +147,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                     total_loss += loss
                     num += 1
                 except Exception as e:
-                    print("sent: %s has training error: %s" % (str(sent_id), e))
+                    logger.info("sent: %s has training error: %s" % (str(sent_id), e))
             else:
                 loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                        a_model_optimizer, label_model, label_model_optimizer, s_model,
@@ -156,11 +157,11 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 num += 1
 
             if num % 1000 == 0:
-                print("%d finished" % num)
+                logger.info("%d finished" % num)
 
-        print("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
+        logger.info("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
         end_i = time.time()
-        print("training time elapsed: %.2fs" % (end_i - start_i))
+        logger.info("training time elapsed: %.2fs" % (end_i - start_i))
 
         model.eval()
         a_model.eval()
@@ -172,9 +173,9 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                                                            val_text, val_passages, val_pos, val_pos_tensor, labels,
                                                            label2index, val_ent, val_ent_tensor,
                                                            val_case_tensor, unroll, eval_type="labeled")
-        print("validation f1 labeled: %.4f" % labeled_f1)
-        print("validation f1 unlabeled: %.4f" % unlabeled_f1)
-        print()
+        logger.info("validation f1 labeled: %.4f" % labeled_f1)
+        logger.info("validation f1 unlabeled: %.4f" % unlabeled_f1)
+        logger.info()
 
         if labeled_f1 > best_score:
             best_score = labeled_f1
@@ -189,22 +190,22 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
 def main():
     if testing_phase:
-        # train_file = "/home/dianyu/Desktop/P/UCCA/real_data/training/UCCA_English-Wiki/"
-        # dev_file = "/home/dianyu/Desktop/P/UCCA/test_data/"
-        # train_file_dir = "real_training.pt"
-        # dev_file_dir = "real_testing.pt"
-        # vocab_dir = "real_vocab.pt"
-        # pos_vocab_dir = "real_pos_vocab.pt"
-        # ent_vocab_dir = "real_ent_vocab.pt"
+        train_file = "/home/dianyu/Desktop/P/UCCA/real_data/training/UCCA_English-Wiki/"
+        dev_file = "/home/dianyu/Desktop/P/UCCA/test_data/"
+        train_file_dir = "real_training.pt"
+        dev_file_dir = "real_testing.pt"
+        vocab_dir = "real_vocab.pt"
+        pos_vocab_dir = "real_pos_vocab.pt"
+        ent_vocab_dir = "real_ent_vocab.pt"
 
         # 20k data
-        train_file = "/home/dianyu/Desktop/P/UCCA/real_data/training/UCCA_English-Wiki/"
-        dev_file = "/home/dianyu/Downloads/UCCA_English-20K-master/xml"
-        train_file_dir = "20k_real_training.pt"
-        dev_file_dir = "20k_real_testing.pt"
-        vocab_dir = "20k_real_vocab.pt"
-        pos_vocab_dir = "20k_real_pos_vocab.pt"
-        ent_vocab_dir = "20k_real_ent_vocab.pt"
+        # train_file = "/home/dianyu/Desktop/P/UCCA/real_data/training/UCCA_English-Wiki/"
+        # dev_file = "/home/dianyu/Downloads/UCCA_English-20K-master/xml"
+        # train_file_dir = "20k_real_training.pt"
+        # dev_file_dir = "20k_real_testing.pt"
+        # vocab_dir = "20k_real_vocab.pt"
+        # pos_vocab_dir = "20k_real_pos_vocab.pt"
+        # ent_vocab_dir = "20k_real_ent_vocab.pt"
     elif not debugging:
         train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
         dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
