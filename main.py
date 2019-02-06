@@ -11,9 +11,8 @@ from io_file import read_passages, passage_preprocess_data, passage_loading_data
 from models import RNNModel, AModel, LabelModel, Vocab, SubModel
 from train_from_passage import train_f_passage
 from evaluate_with_label import get_validation_accuracy
+from config import opts
 
-torch.manual_seed(1)
-random.seed(1)
 
 logger = logging.getLogger(__name__)
 
@@ -25,15 +24,16 @@ label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
 
-debugging = True
-use_embedding = True
-reading_data = True
-use_lowercase = False
-unroll = False
-replace_digits = False
-testing_phase = False
+seed = opts.seed
+debugging = opts.debugging
+testing_phase = opts.testing
+use_embedding = opts.use_embedding
+reading_data = opts.reading_data
+use_lowercase = opts.use_lowercase
+unroll = opts.unroll
+replace_digits = opts.replace_digits
 
-logger.info("using seed 1")
+logger.info("using seed %d" % seed)
 logger.info("is debugging: %s" % debugging)
 logger.info("testing: %s" % testing_phase)
 logger.info("use_embedding: %s" % use_embedding)
@@ -41,6 +41,9 @@ logger.info("reading_data: %s" % reading_data)
 logger.info("use_lowercase: %s" % use_lowercase)
 logger.info("unroll: %s" % unroll)
 logger.info("replace_digits: %s" % replace_digits)
+
+torch.manual_seed(opts.seed)
+random.seed(opts.seed)
 
 
 def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent, ent_vocab,
