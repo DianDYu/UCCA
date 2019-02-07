@@ -5,6 +5,8 @@ from ucca import ioutil, core, layer0, layer1
 from ucca.layer1 import FoundationalNode
 from evaluation import evaluate as evaluator
 
+from train_from_passage import get_primary_parent
+
 import torch
 
 punc = string.punctuation
@@ -53,6 +55,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
     max_recur = 5
     i = 0
+    sent_length = len(ori_sent)
 
     l1_node_list = []
     l0_node_list = []
@@ -73,12 +76,13 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
     already_in_propn = []
 
-    while i < len(ori_sent):
+    while i < sent_length:
         terminal_token = ori_sent[i]
         pos_tag = pos[i]
         ent_type = ent[i]
 
         if not predict_l1:
+            # moved to l0_l1_rule.py
             pass
         # predict l0 to l1
         else:
@@ -216,6 +220,16 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
                                 pred_label = labels[label_top_k_ind]
                                 new_node.add(pred_label, child)
+
+                            # predict remote edge
+                            if using_rm_model:
+                                rm_weight = rm_model(new_node_enc, output_2d, sent_length)
+                                rm_top_k_value, rm_top_k_ind = torch.topk(rm_weight, 1)
+                                if rm_top_k_ind <= get_left_most_id(new_node):
+                                    rm_pred_label = "A"
+                                    new_node.add(rm_pred_label, get_primary_parent(l0_node_list[rm_top_k_ind]),
+                                                 edge_attrib={'remote': True})
+
                             l1_node_list.append(new_node)
                             node_encoding[new_node] = new_node_enc
                             ck_node_encoding[new_node] = [debug_left_most_id, i]
@@ -224,7 +238,6 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
         # recursive call to see if need to create new node
         for r in range(1, max_recur + 1):
-
             if using_s_model:
                 output_boundary = output[left_most_idx: i + 1]
                 if unroll and left_most_idx > 0:
@@ -284,6 +297,16 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
                             pred_label = labels[label_top_k_ind]
                             new_node.add(pred_label, child)
+
+                        # predict remote edge
+                        if using_rm_model:
+                            rm_weight = rm_model(r_new_node_enc, output_2d, sent_length)
+                            rm_top_k_value, rm_top_k_ind = torch.topk(rm_weight, 1)
+                            if rm_top_k_ind <= get_left_most_id(new_node):
+                                rm_pred_label = "A"
+                                new_node.add(rm_pred_label, get_primary_parent(l0_node_list[rm_top_k_ind]),
+                                             edge_attrib={'remote': True})
+
                         l1_node_list.append(new_node)
                         """WARNING: seems this is wrong. changed"""
                         # node_encoding[new_node] = output[i] - r_new_node_enc
