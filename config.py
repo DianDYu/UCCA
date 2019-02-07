@@ -31,6 +31,9 @@ def parse_opts():
     parser.add_argument("--not_save",
                         action='store_true',
                         help="not save trained models. used for debugging")
+    parser.add_argument("--predict_remote",
+                        action='store_true',
+                        help="whether to predict the remote edges")
     # parser.add_argument("--testing",
     #                     action='store_true',
     #                     help="testing mode for final result on the test set")
