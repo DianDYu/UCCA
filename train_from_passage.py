@@ -14,8 +14,9 @@ predict_l1 = True
 
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
-                    label_model, label_model_optimizer, s_model, s_model_optimizer,
-                    criterion, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor, unroll):
+                    label_model, label_model_optimizer, s_model, s_model_optimizer, rm_model,
+                    rm_model_optimizer, criterion, ori_sent, pos, pos_tensor, ent, ent_tensor,
+                    case_tensor, unroll):
 
     model_optimizer.zero_grad()
     a_model_optimizer.zero_grad()
@@ -26,6 +27,11 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         s_model_optimizer.zero_grad()
         using_s_model = True
 
+    using_rm_model = False
+    if not isinstance(rm_model, str):
+        rm_model_optimizer.zero_grad()
+        using_rm_model = True
+
     max_recur = 5
     max_grad_norm = 1.0
 
@@ -35,6 +41,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     label_loss_num = 0
     propn_loss = 0
     propn_loss_num = 0
+    rm_loss = 0
+    rm_loss_num = 0
 
     output, hidden = model(sent_tensor, pos_tensor, ent_tensor, case_tensor, unroll)
     # output: (seq_len, batch, hidden_size)
@@ -47,10 +55,11 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     terminal_nodes = l0.all
 
     i = 0
+    sent_length = len(output)
 
     node_encoding = {}
 
-    while i < len(output):
+    while i < sent_length:
         terminal_word = ori_sent[i]
 
         output_i = output[i]
@@ -144,6 +153,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         else:
             current_encoding = output_i
             to_layer1 = True
+            rec_i = 0
             while True:
                 # attend to a previous node
                 left_most_child_idx = get_child_idx_in_l0(primary_parent, "left")
@@ -170,6 +180,18 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 attn_weight = a_model(current_encoding, output_2d, i)
                 unit_loss += criterion(attn_weight, torch.tensor([left_most_child_idx], dtype=torch.long, device=device))
                 unit_loss_num += 1
+
+                # remote loss
+                # only count when the node is in a higher level then the bottom l1 node
+                if rec_i > 0 and using_rm_model:
+                    rm_weight = rm_model(current_encoding, output_2d, sent_length)
+                    rm_child = get_remote_child(primary_parent)
+                    if not isinstance(rm_child, int):
+                        rm_child_idx = get_child_idx_in_l0(rm_child)
+                        rm_loss += criterion(rm_weight, torch.tensor([rm_child_idx], dtype=torch.long, device=device))
+                    else:
+                        rm_loss += criterion(rm_weight, torch.tensor([i], dtype=torch.long, device=device))
+                    rm_loss_num += 1
 
                 # label loss
                 for edge in get_legit_edges(primary_parent):
@@ -225,9 +247,11 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 else:
                     primary_parent = primary_grandparent
 
+                rec_i += 1
+
         i += 1
 
-    total_loss = unit_loss + label_loss + propn_loss
+    total_loss = unit_loss + label_loss + propn_loss + rm_loss
     total_loss.backward()
 
     # gradient clipping
@@ -236,14 +260,23 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     torch.nn.utils.clip_grad_norm_(parameters=label_model.parameters(), max_norm=max_grad_norm)
     if using_s_model:
         torch.nn.utils.clip_grad_norm_(parameters=s_model.parameters(), max_norm=max_grad_norm)
+    if using_rm_model:
+        torch.nn.utils.clip_grad_norm_(parameters=rm_model.parameters(), max_norm=max_grad_norm)
 
     model_optimizer.step()
     a_model_optimizer.step()
     label_model_optimizer.step()
     if using_s_model:
         s_model_optimizer.step()
+    if using_rm_model:
+        rm_model_optimizer.step()
 
-    return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num + propn_loss / propn_loss_num
+    if rm_loss_num == 0:
+        # in case there is no rm_loss
+        rm_loss_num = 1
+
+    return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num + propn_loss / propn_loss_num +\
+        rm_loss / rm_loss_num
 
 
 def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
@@ -334,6 +367,23 @@ def get_legit_children(node):
     for edge in legit_edges:
         children.append(edge.child)
     return clean_implicit_nodes(children)
+
+
+def get_remote_child(node):
+    # assume one node have at most one remote child
+    # assume the remote child is the lowest level in l1
+    remote_edge = get_remote_edge(node)
+    if not isinstance(remote_edge, int):
+        return remote_edge.child
+    return 0
+
+
+def get_remote_edge(node):
+    # assume one node have at most one remote child
+    for edge in node.outgoing:
+        if edge.attrib.get("remote"):
+            return edge
+    return 0
 
 
 def reorder_children(children):
