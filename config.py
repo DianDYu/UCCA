@@ -1,7 +1,7 @@
 import argparse
 
 
-def opts():
+def parse_opts():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--debugging",
@@ -28,6 +28,9 @@ def opts():
     parser.add_argument("--use_both_ends",
                         action='store_true',
                         help="whether to use both ends (concat) in the sub_lstm_model")
+    parser.add_argument("--not_save",
+                        action='store_true',
+                        help="not save trained models. used for debugging")
     # parser.add_argument("--testing",
     #                     action='store_true',
     #                     help="testing mode for final result on the test set")
