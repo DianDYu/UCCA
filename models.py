@@ -1,4 +1,6 @@
 import random
+import logging
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -6,14 +8,26 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from match_pretrained_embedding import match_embedding
+from config import parse_opts
 
-torch.manual_seed(1)
-random.seed(1)
+
+logging.basicConfig(format = '%(message)s',
+                    datefmt = '%m/%d/%Y %H:%M:%S',
+                    level = logging.INFO)
+logger = logging.getLogger(__name__)
+
+opts = parse_opts()
+
+seed = opts.seed
+
+torch.manual_seed(seed)
+random.seed(seed)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-use_both_ends = False
-print("use both ends: %s" % use_both_ends)
+# use_both_ends = False
+use_both_ends = opts.use_both_ends
+logger.info("use both ends: %s" % use_both_ends)
 
 class Vocab():
     def __init__(self):
@@ -108,7 +122,9 @@ class RNNModel(nn.Module):
 
     def init_hidden(self):
         if self.pretrained_vectors:
-            pretrained = match_embedding()
+            logger.info("match embedding")
+            pretrained = tqdm(match_embedding())
+            logger.info("")
             self.embedding.weight.data.copy_(pretrained)
             if self.fixed_embedding:
                 self.embedding.weight.requires_grad = False

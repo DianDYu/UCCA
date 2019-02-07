@@ -7,6 +7,12 @@ import torch
 from ucca import ioutil
 from models import Vocab
 
+
+logging.basicConfig(format = '%(message)s',
+                    datefmt = '%m/%d/%Y %H:%M:%S',
+                    level = logging.INFO)
+logger = logging.getLogger(__name__)
+
 torch.manual_seed(1)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -17,9 +23,12 @@ label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
 
+
 # data reader from xml
 def read_passages(file_dirs):
-    return ioutil.read_files_and_dirs(file_dirs)
+    logger.info("")
+    logger.info("Reading from %s" %file_dirs)
+    return tqdm(ioutil.read_files_and_dirs(file_dirs))
 
 
 def indexesFromSentence(vocab, sentence):
@@ -150,6 +159,9 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
                 else (dev_text_tensor, dev_passages, dev_text)
         data_list = []
 
+        logger.info("")
+        logger.info("preprocess %s data" % mode)
+
         for sent_tensor, sent_passage, ori_sent in tqdm(zip(data_text_tensor, data_passages, data_text)):
             new_line_data = []
             sent_id = sent_passage.ID
@@ -181,8 +193,8 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
 
         torch.save(data_list, data_file_dir)
 
-        print("%d number of sentences for %s" % (num_sents, mode))
-        print()
+        logger.info("%d sentences for %s" % (num_sents, mode))
+        logger.info("")
 
     torch.save(vocab, vocab_dir)
 

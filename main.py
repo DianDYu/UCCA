@@ -6,14 +6,19 @@ import torch
 import torch.nn as nn
 from torch import optim
 
+from tqdm import tqdm
+
 from io_file import read_passages, passage_preprocess_data, passage_loading_data, prepare_pos_vocab, \
     get_pos_tensor, save_test_model, prepare_ent_vocab, get_ent_tensor, get_case_tensor
 from models import RNNModel, AModel, LabelModel, Vocab, SubModel
 from train_from_passage import train_f_passage
 from evaluate_with_label import get_validation_accuracy
-from config import opts
+from config import parse_opts
 
 
+logging.basicConfig(format = '%(message)s',
+                    datefmt = '%m/%d/%Y %H:%M:%S',
+                    level = logging.INFO)
 logger = logging.getLogger(__name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,6 +28,8 @@ labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S", "G"]
 label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
+
+opts = parse_opts()
 
 seed = opts.seed
 debugging = opts.debugging
@@ -41,6 +48,7 @@ logger.info("reading_data: %s" % reading_data)
 logger.info("use_lowercase: %s" % use_lowercase)
 logger.info("unroll: %s" % unroll)
 logger.info("replace_digits: %s" % replace_digits)
+logger.info("")
 
 torch.manual_seed(opts.seed)
 random.seed(opts.seed)
@@ -132,8 +140,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             s_model.train()
 
         for sent_id, sent_tensor, train_passage, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor in \
-                zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor,
-                    train_ent, train_ent_tensor, train_case_tensor):
+                tqdm(zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor,
+                    train_ent, train_ent_tensor, train_case_tensor)):
 
             # debugging
             # print(train_passage.layers)
@@ -178,17 +186,18 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                                                            val_case_tensor, unroll, eval_type="labeled")
         logger.info("validation f1 labeled: %.4f" % labeled_f1)
         logger.info("validation f1 unlabeled: %.4f" % unlabeled_f1)
-        logger.info()
+        logger.info("")
 
-        if labeled_f1 > best_score:
-            best_score = labeled_f1
-            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
-                            epoch, labeled_f1)
+        if not opts.not_save:
+            if labeled_f1 > best_score:
+                best_score = labeled_f1
+                save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
+                                epoch, labeled_f1)
 
-        # save every 10 epochs
-        if epoch % 10 == 0:
-            save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
-                            epoch, labeled_f1)
+            # save every 10 epochs
+            if epoch % 10 == 0:
+                save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
+                                epoch, labeled_f1)
 
 
 def main():
