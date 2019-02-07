@@ -1,5 +1,13 @@
+import logging
 import torch
 import numpy as np
+from tqdm import tqdm
+
+logging.basicConfig(format = '%(message)s',
+                    datefmt = '%m/%d/%Y %H:%M:%S',
+                    level = logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 vocab_dir = "real_vocab.pt"
 embedding_dir = "/home/dianyu/Downloads/crawl-300d-2M.vec"
@@ -10,18 +18,21 @@ emb_dim = 300
 
 def match_embedding():
     vocab = torch.load(vocab_dir)
+    logger.info("reading pretrained embeddings")
     embeddings = get_embeddings(embedding_dir)
     load_embeddings = np.zeros((vocab.n_words, emb_dim))
     count = {"match": 0, "miss": 0}
 
-    for w, w_id in vocab.word2index.items():
+    logger.info("")
+    logger.info("matching embeddings")
+    for w, w_id in tqdm(vocab.word2index.items(), total=vocab.n_words):
         if w in embeddings:
             load_embeddings[w_id] = embeddings[w]
             count["match"] += 1
         else:
             count["miss"] += 1
 
-    print("%d match, %d miss" % (count["match"], count["miss"]))
+    logger.info("%d match, %d miss" % (count["match"], count["miss"]))
 
     return torch.Tensor(load_embeddings)
 

@@ -162,7 +162,8 @@ def passage_preprocess_data(train_passages, train_file_dir, dev_passages, dev_fi
         logger.info("")
         logger.info("preprocess %s data" % mode)
 
-        for sent_tensor, sent_passage, ori_sent in tqdm(zip(data_text_tensor, data_passages, data_text)):
+        for sent_tensor, sent_passage, ori_sent in tqdm(zip(data_text_tensor, data_passages, data_text),
+                                                        total=len(data_passages)):
             new_line_data = []
             sent_id = sent_passage.ID
             l0 = sent_passage.layer("0")

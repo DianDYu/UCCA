@@ -1,6 +1,5 @@
 import random
 import logging
-from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -28,6 +27,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # use_both_ends = False
 use_both_ends = opts.use_both_ends
 logger.info("use both ends: %s" % use_both_ends)
+
 
 class Vocab():
     def __init__(self):
@@ -123,7 +123,7 @@ class RNNModel(nn.Module):
     def init_hidden(self):
         if self.pretrained_vectors:
             logger.info("match embedding")
-            pretrained = tqdm(match_embedding())
+            pretrained = match_embedding()
             logger.info("")
             self.embedding.weight.data.copy_(pretrained)
             if self.fixed_embedding:

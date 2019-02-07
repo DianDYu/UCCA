@@ -141,7 +141,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
         for sent_id, sent_tensor, train_passage, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor in \
                 tqdm(zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor,
-                    train_ent, train_ent_tensor, train_case_tensor)):
+                    train_ent, train_ent_tensor, train_case_tensor), total=len(train_passages)):
 
             # debugging
             # print(train_passage.layers)
