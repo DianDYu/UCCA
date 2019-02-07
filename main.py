@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from io_file import read_passages, passage_preprocess_data, passage_loading_data, prepare_pos_vocab, \
     get_pos_tensor, save_test_model, prepare_ent_vocab, get_ent_tensor, get_case_tensor
-from models import RNNModel, AModel, LabelModel, Vocab, SubModel
+from models import RNNModel, AModel, LabelModel, Vocab, SubModel, RemoteModel
 from train_from_passage import train_f_passage
 from evaluate_with_label import get_validation_accuracy
 from config import parse_opts
@@ -39,6 +39,7 @@ reading_data = opts.reading_data
 use_lowercase = opts.use_lowercase
 unroll = opts.unroll
 replace_digits = opts.replace_digits
+predict_remote = opts.predict_remote
 
 logger.info("using seed %d" % seed)
 logger.info("is debugging: %s" % debugging)
@@ -60,8 +61,6 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     criterion = nn.NLLLoss()
 
     using_sub_model = True
-    if not using_sub_model:
-        s_model = s_model_optimizer = "sub_lstm_model"
 
     if debugging:
         model = RNNModel(n_words, pos_vocab.n_words, ent_vocab.n_words, use_pretrain=False).to(device)
@@ -69,14 +68,22 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         model = RNNModel(n_words, pos_vocab.n_words, ent_vocab.n_words, use_pretrain=use_embedding).to(device)
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
-    if using_sub_model:
-        s_model = SubModel().to(device)
 
     model_optimizer = optim.Adam(model.parameters())
     a_model_optimizer = optim.Adam(a_model.parameters())
     label_model_optimizer = optim.Adam(label_model.parameters())
+
     if using_sub_model:
+        s_model = SubModel().to(device)
         s_model_optimizer = optim.Adam(s_model.parameters())
+    else:
+        s_model = s_model_optimizer = "sub_lstm_model"
+
+    if predict_remote:
+        rm_model = RemoteModel().to(device)
+        rm_model_optimizer = optim.Adam(rm_model.parameters())
+    else:
+        rm_model = rm_model_optimizer = "remote_model"
 
     best_score = 0
 
@@ -138,6 +145,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         label_model.train()
         if using_sub_model:
             s_model.train()
+        if predict_remote:
+            rm_model.train()
 
         for sent_id, sent_tensor, train_passage, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor in \
                 tqdm(zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor,
@@ -153,8 +162,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 try:
                     loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                            a_model_optimizer, label_model, label_model_optimizer, s_model,
-                                           s_model_optimizer, criterion, ori_sent, pos, pos_tensor, ent,
-                                           ent_tensor, case_tensor, unroll)
+                                           s_model_optimizer, rm_model, rm_model_optimizer, criterion, ori_sent,
+                                           pos, pos_tensor, ent, ent_tensor, case_tensor, unroll)
                     total_loss += loss
                     num += 1
                 except Exception as e:
@@ -179,10 +188,12 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         label_model.eval()
         if using_sub_model:
             s_model.eval()
+        if predict_remote:
+            rm_model.eval()
 
         labeled_f1, unlabeled_f1 = get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model,
-                                                           val_text, val_passages, val_pos, val_pos_tensor, labels,
-                                                           label2index, val_ent, val_ent_tensor,
+                                                           rm_model, val_text, val_passages, val_pos, val_pos_tensor,
+                                                           labels, label2index, val_ent, val_ent_tensor,
                                                            val_case_tensor, unroll, eval_type="labeled")
         logger.info("validation f1 labeled: %.4f" % labeled_f1)
         logger.info("validation f1 unlabeled: %.4f" % unlabeled_f1)
