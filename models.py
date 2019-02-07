@@ -304,3 +304,24 @@ class LabelModel(nn.Module):
         reduce_concat_enc = F.relu(self.linear(concat_enc))
         prob = F.log_softmax(self.map_label(reduce_concat_enc), dim=1)
         return prob
+
+
+class RemoteModel(nn.Module):
+    """
+    essentially the same as the attention model
+    create a new model so that the new feedforward network will learn the relationship between the current parent node
+        and a remote node instead of the relationship between the primary nodes
+    """
+    def __init__(self):
+        super(RemoteModel, self).__init__()
+        self.hidden_size = 500
+        self.linear = nn.Linear(500, self.hidden_size)
+
+    def forward(self, output_i, output_2d, index):
+        rm_output_i = F.relu(self.linear(output_i))
+        rm_output_trans =  F.relu(self.linear(output_2d[:index + 1])).transpose(0, 1)
+        mm = torch.mm(rm_output_i, rm_output_trans)
+        prob = F.log_softmax(mm, dim=1)
+        return prob
+
+
