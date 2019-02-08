@@ -53,13 +53,14 @@ def parse_opts():
                         type=str,
                         default="models/debugging",
                         help="directory to load trained models")
-    # parser.add_argument("--testing",
-    #                     action='store_true',
-    #                     help="testing mode for final result on the test set")
     parser.add_argument('--seed',
                         type=int,
                         default=1,
                         help="random seed for initialization")
+    parser.add_argument('--epochs',
+                        type=int,
+                        default=60,
+                        help="number of epochs to train")
     parser.add_argument('--is_server',
                         action='store_true',
                         help="for tuning only. chnage the diretory if running on server")

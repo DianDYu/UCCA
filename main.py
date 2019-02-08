@@ -58,7 +58,7 @@ random.seed(opts.seed)
 
 def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_passages, pos_vocab, t_ent, ent_vocab,
                         t_case):
-    n_epoch = 300
+    n_epoch = opts.epochs
     criterion = nn.NLLLoss()
 
     using_sub_model = True
