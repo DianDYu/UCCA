@@ -1,11 +1,12 @@
 import string
 import operator
+from collections import defaultdict
 
 from ucca import ioutil, core, layer0, layer1
 from ucca.layer1 import FoundationalNode
 from evaluation import evaluate as evaluator
 
-from train_from_passage import get_primary_parent
+from train_from_passage import get_primary_parent, get_legit_edges
 
 import torch
 
@@ -50,6 +51,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
         using_s_model = True
 
     using_rm_model = False
+
     if not isinstance(rm_model, str):
         using_rm_model = True
 
@@ -75,6 +77,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
     predicted_scene = False
 
     already_in_propn = []
+    rm_to_add = defaultdict(list)
 
     while i < sent_length:
         terminal_token = ori_sent[i]
@@ -109,6 +112,13 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
             # attend to the current terminal itself
             if top_k_ind.data[0] >= i:
+
+                # # remote node to a node to the right of the parent
+                # if i in rm_to_add:
+                #     for remote_pred in rm_to_add[i]:
+                #         rm_parent, rm_label = remote_pred
+                #         rm_parent.add(rm_label, terminal_node_in_l1, edge_attrib={'remote': True})
+
                 i += 1
                 continue
             else:
@@ -191,6 +201,12 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                             left_most_idx = get_left_most_id(terminal_node_in_l1)
                             node_encoding[terminal_node_in_l1] = new_node_enc
                             ck_node_encoding[terminal_node_in_l1] = [debug_left_most_id, i]
+
+                # # remote node to a node to the right of the parent
+                # if i in rm_to_add:
+                #     for remote_pred in rm_to_add[i]:
+                #         rm_parent, rm_label = remote_pred
+                #         rm_parent.add(rm_label, terminal_node_in_l1, edge_attrib={'remote': True})
                         
                 if not combined:
                     children = []
@@ -225,10 +241,15 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                             if using_rm_model:
                                 rm_weight = rm_model(new_node_enc, output_2d, sent_length)
                                 rm_top_k_value, rm_top_k_ind = torch.topk(rm_weight, 1)
-                                if rm_top_k_ind <= get_left_most_id(new_node):
+                                if rm_top_k_ind < get_left_most_id(new_node):
                                     rm_pred_label = "A"
                                     new_node.add(rm_pred_label, get_primary_parent(l0_node_list[rm_top_k_ind]),
                                                  edge_attrib={'remote': True})
+                                elif rm_top_k_ind > get_right_most_id(new_node):
+                                    rm_pred_label = "A"
+                                    # new_node.add(rm_pred_label, get_primary_parent(l0_node_list[rm_top_k_ind]),
+                                    #              edge_attrib={'remote': True})
+                                    rm_to_add[rm_top_k_ind.data.cpu().numpy()[0][0]].append((new_node, rm_pred_label))
 
                             l1_node_list.append(new_node)
                             node_encoding[new_node] = new_node_enc
@@ -249,7 +270,8 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
             new_node_attn_weight = a_model(new_node_output, output_2d, i)
             r_top_k_value, r_top_k_ind = torch.topk(new_node_attn_weight, 1)
-            #predict out of boundary
+
+            # predict out of boundary
             if r_top_k_ind > i:
                 break
             # attend to the new node itself
@@ -302,10 +324,15 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                         if using_rm_model:
                             rm_weight = rm_model(r_new_node_enc, output_2d, sent_length)
                             rm_top_k_value, rm_top_k_ind = torch.topk(rm_weight, 1)
-                            if rm_top_k_ind <= get_left_most_id(new_node):
+                            if rm_top_k_ind < get_left_most_id(new_node):
                                 rm_pred_label = "A"
                                 new_node.add(rm_pred_label, get_primary_parent(l0_node_list[rm_top_k_ind]),
                                              edge_attrib={'remote': True})
+                            elif rm_top_k_ind > get_right_most_id(new_node):
+                                rm_pred_label = "A"
+                                # new_node.add(rm_pred_label, get_primary_parent(l0_node_list[rm_top_k_ind]),
+                                #              edge_attrib={'remote': True})
+                                rm_to_add[rm_top_k_ind.data.cpu().numpy()[0][0]].append((new_node, rm_pred_label))
 
                         l1_node_list.append(new_node)
                         """WARNING: seems this is wrong. changed"""
@@ -330,7 +357,6 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
     #         head_node.add(pred_label, node)
 
     # ioutil.write_passage(passage)
-    # print(passage)
 
     return passage
 
@@ -355,10 +381,28 @@ def get_left_most_id(node):
     :return:
     """
     while len(node.children) > 0:
-        node = node.children[0]
+        legit_edges = get_legit_edges(node)
+        node = legit_edges[0].child
 
     left_most_ID = node.ID
     index_in_l0 = left_most_ID.split(core.Node.ID_SEPARATOR)[-1]
+
+    # index in l0 starts with 1. To get the index in the l0 list, minus 1
+    return int(index_in_l0) - 1
+
+
+def get_right_most_id(node):
+    """
+    get the index of the left most child in l0 list
+    :param node:
+    :return:
+    """
+    while len(node.children) > 0:
+        legit_edges = get_legit_edges(node)
+        node = legit_edges[-1].child
+
+    right_most_ID = node.ID
+    index_in_l0 = right_most_ID.split(core.Node.ID_SEPARATOR)[-1]
 
     # index in l0 starts with 1. To get the index in the l0 list, minus 1
     return int(index_in_l0) - 1
@@ -388,7 +432,6 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
                                                tgt_passage, pos, pos_tensor, labels, label2index, ent,
                                                ent_tensor, case_tensor, unroll)
 
-        # print(tgt_passage)
         if testing_phase:
             ioutil.write_passage(pred_passage, outdir="pred_test/")
         else:
@@ -418,6 +461,10 @@ def calculate_f1(total_matches, total_guessed, total_ref):
     # calculate micro f1
     p = 1.0 * total_matches / total_guessed
     r = 1.0 * total_matches / total_ref
+
+    if (p + r) == 0:
+        return 0
+
     f1 = 2.0 * p * r / float(p + r)
 
     return f1
