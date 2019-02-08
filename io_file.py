@@ -237,19 +237,26 @@ def prepare_ent_vocab(train_pos, dev_pos, ent_vocab_dir):
     torch.save(ent_vocab, ent_vocab_dir)
 
 
-def save_test_model(model_e, a_model_e, label_model_e, s_model_e, n_words, pos_n_words, ent_n_words, epoch, f1):
+def save_test_model(model_e, a_model_e, label_model_e, s_model_e, rm_model_e, n_words, pos_n_words,
+                    ent_n_words, epoch, f1, save_dir):
+
     if not isinstance(s_model_e, str):
         s_model_dict = s_model_e.state_dict()
     else:
         s_model_dict = "sub_lstm_model"
+    if not isinstance(rm_model_e, str):
+        rm_model_dict = rm_model_e.state_dict()
+    else:
+        rm_model_dict = "remote_model"
 
     checkpoint = {
         'model': model_e.state_dict(),
         'a_model': a_model_e.state_dict(),
         'label_model': label_model_e.state_dict(),
         's_model': s_model_dict,
+        'rm_model': rm_model_dict,
         'vocab_size': n_words,
         'pos_vocab_size': pos_n_words,
         'ent_vocab_size': ent_n_words
     }
-    torch.save(checkpoint, "models/20k_epoch_%d_f1_%.2f.pt" % (epoch, f1 * 100))
+    torch.save(checkpoint, "%s_epoch_%d_f1_%.2f.pt" % (save_dir, epoch, f1 * 100))
