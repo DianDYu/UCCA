@@ -413,8 +413,10 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
                             val_case_tensor, unroll, eval_type="unlabeled",
                             testing=False, testing_phase=False):
 
-    total_labeled = (total_matches_l, total_guessed_l, total_ref_l) = (0, 0, 0)
-    total_unlabeled = (total_guessed_un, total_guessed_un, total_ref_un) = (0, 0, 0)
+    total_labeled = (0, 0, 0)
+    total_unlabeled = (0, 0, 0)
+    total_labeled_remote = (0, 0, 0)
+    total_unlabeled_remote = (0, 0, 0)
 
     top_10_to_writeout = 10
 
@@ -436,10 +438,13 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
             ioutil.write_passage(pred_passage, outdir="pred_test/")
         else:
 
-            labeled, unlabeled = get_score(pred_passage, tgt_passage, testing, eval_type)
+            labeled, unlabeled, labeled_remote, unlabeled_remote = get_score(pred_passage,
+                                                                             tgt_passage, testing, eval_type)
 
             total_labeled = tuple(map(operator.add, total_labeled, labeled))
             total_unlabeled = tuple(map(operator.add, total_unlabeled, unlabeled))
+            total_labeled_remote = tuple(map(operator.add, total_labeled_remote, labeled_remote))
+            total_unlabeled_remote = tuple(map(operator.add, total_unlabeled_remote, unlabeled_remote))
 
             if top_10_to_writeout < 10:
                 ioutil.write_passage(pred_passage)
@@ -453,12 +458,18 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
 
     labeled_f1 = calculate_f1(total_labeled[0], total_labeled[1], total_labeled[2])
     unlabeled_f1 = calculate_f1(total_unlabeled[0], total_unlabeled[1], total_unlabeled[2])
+    labeled_f1_remote = calculate_f1(total_labeled_remote[0], total_labeled_remote[1], total_labeled_remote[2])
+    unlabeled_f1_remote = calculate_f1(total_unlabeled_remote[0], total_unlabeled_remote[1],
+                                       total_unlabeled_remote[2])
 
-    return labeled_f1, unlabeled_f1
+    return labeled_f1, unlabeled_f1, labeled_f1_remote, unlabeled_f1_remote
 
 
 def calculate_f1(total_matches, total_guessed, total_ref):
     # calculate micro f1
+    if total_matches == 0:
+        return 0
+
     p = 1.0 * total_matches / total_guessed
     r = 1.0 * total_matches / total_ref
 
@@ -483,21 +494,28 @@ def get_score(pred, tgt, testing, eval_type="unlabeled"):
 
     score = evaluator(pred, tgt, eval_types=(eval_type), verbose=verbose, units=units)
 
-    unlabeled = get_results(score, "unlabeled")
+    unlabeled, unlabeled_remote = get_results(score, "unlabeled")
     if eval_type == "labeled":
-        labeled = get_results(score, "labeled")
+        labeled, labeled_remote = get_results(score, "labeled")
     else:
-        labeled = get_results(score, "unlabeled")
+        labeled, labeled_remote = get_results(score, "unlabeled")
 
-    return labeled, unlabeled
+    return labeled, unlabeled, labeled_remote, unlabeled_remote
 
 
 def get_results(score, eval_type):
     eval_score = score.evaluators[eval_type]
     primary, remote = eval_score.results.items()
+    # primary: (<ucca.constructions.Construction at 0x7f87c3720c50>,
+    #           <evaluation.SummaryStatistics at 0x7f87c3621f60>)
     summary_stats = primary[1]
     num_matches = summary_stats.num_matches
     num_guessed = summary_stats.num_guessed
     num_ref = summary_stats.num_ref
 
-    return num_matches, num_guessed, num_ref
+    remote_stats = remote[1]
+    remote_matches = remote_stats.num_matches
+    remote_guessed = remote_stats.num_guessed
+    remote_ref = remote_stats.num_ref
+
+    return (num_matches, num_guessed, num_ref), (remote_matches, remote_guessed, remote_ref)

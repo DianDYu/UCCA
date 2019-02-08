@@ -193,12 +193,15 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         if predict_remote:
             rm_model.eval()
 
-        labeled_f1, unlabeled_f1 = get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model,
-                                                           rm_model, val_text, val_passages, val_pos, val_pos_tensor,
-                                                           labels, label2index, val_ent, val_ent_tensor,
-                                                           val_case_tensor, unroll, eval_type="labeled")
+        labeled_f1, unlabeled_f1, labeled_f1_remote, unlabeled_f1_remote = \
+            get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model,
+                                    rm_model, val_text, val_passages, val_pos, val_pos_tensor,
+                                    labels, label2index, val_ent, val_ent_tensor,
+                                    val_case_tensor, unroll, eval_type="labeled")
         logger.info("validation f1 labeled: %.4f" % labeled_f1)
         logger.info("validation f1 unlabeled: %.4f" % unlabeled_f1)
+        logger.info("validation f1 labeled_remote: %.4f" % labeled_f1_remote)
+        logger.info("validation f1 unlabeled_remote: %.4f" % unlabeled_f1_remote)
         logger.info("")
 
         if not opts.not_save:
