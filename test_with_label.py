@@ -2,18 +2,27 @@ import logging
 
 import torch
 
-from models import RNNModel, AModel, LabelModel, Vocab, SubModel
+from models import RNNModel, AModel, LabelModel, Vocab, SubModel, RemoteModel
 from io_file import get_pos_tensor, loading_data, loading_data_passsage
 from evaluate_with_label import get_validation_accuracy
 from with_label import labels, label2index
 
 from io_file import read_passages, passage_loading_data, get_text, tensorFromSentence, get_ent_tensor, get_case_tensor
+from config import parse_opts
 
-torch.manual_seed(1)
+opts = parse_opts()
+seed = opts.seed
+debugging = opts.debugging
+testing_phase = opts.testing
+unroll = opts.unroll
+using_rm_model = opts.predict_remote
+checkpoint_path = opts.load_dir
 
-debugging = False
-testing_phase = True
-unroll = False
+torch.manual_seed(seed)
+
+# debugging = False
+# testing_phase = True
+# unroll = False
 
 # dev_file_dir = "dev_proc.pt"
 # # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/590021.xml"
@@ -25,7 +34,7 @@ if testing_phase:
     vocab_dir = "real_vocab.pt"
     pos_vocab_dir = "real_pos_vocab.pt"
     ent_vocab_dir = "real_ent_vocab.pt"
-    checkpoint_path = "/home/dianyu/Downloads/epoch_47_f1_73.74.pt"
+    # checkpoint_path = "/home/dianyu/Downloads/epoch_47_f1_73.74.pt"
 
 elif not debugging:
     # dev_file_dir = "passage_dev_proc.pt"
@@ -36,7 +45,7 @@ elif not debugging:
     vocab_dir = "real_vocab.pt"
     pos_vocab_dir = "real_pos_vocab.pt"
     ent_vocab_dir = "real_ent_vocab.pt"
-    checkpoint_path = "/home/dianyu/Downloads/epoch_47_f1_73.74.pt"
+    # checkpoint_path = "/home/dianyu/Downloads/epoch_47_f1_73.74.pt"
 
 else:
     # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/674005.xml"
@@ -45,7 +54,7 @@ else:
     pos_vocab_dir = "dbg_passage_pos_vocab.pt"
     ent_vocab_dir = "dbg_passage_ent_vocab.pt"
 
-    checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_3_f1_14.26.pt"
+    # checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_3_f1_14.26.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -72,6 +81,7 @@ def load_test_model(checkpoint_path):
     a_model = AModel()
     label_model = LabelModel(labels)
     s_model = SubModel()
+    rm_model = RemoteModel()
     model.load_state_dict(checkpoint['model'])
     a_model.load_state_dict(checkpoint['a_model'])
     label_model.load_state_dict(checkpoint['label_model'])
@@ -79,6 +89,16 @@ def load_test_model(checkpoint_path):
         s_model.load_state_dict(checkpoint["s_model"])
         s_model.to(device)
         s_model.eval()
+    else:
+        s_model = "sub_lstm_model"
+
+    if using_rm_model:
+        rm_model.load_state_dict(checkpoint["rm_model"])
+        rm_model.to(device)
+        rm_model.eval()
+    else:
+        rm_model = "remote_model"
+
     model.to(device)
     a_model.to(device)
     label_model.to(device)
@@ -86,7 +106,7 @@ def load_test_model(checkpoint_path):
     a_model.eval()
     label_model.eval()
     print()
-    return model, a_model, label_model, s_model
+    return model, a_model, label_model, s_model, rm_model
 
 
 def main():
@@ -96,14 +116,14 @@ def main():
     # dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
     #     dev_ent, dev_head = passage_loading_data(dev_file_dir)
 
-    # dev_ids, dev_text, dev_text_tensor, dev_passages, \
-    # dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
+    dev_ids, dev_text, dev_text_tensor, dev_passages, \
+    dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
 
     # vocab = torch.load(vocab_dir)
 
     # test individual
-    dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
-        dev_ent, dev_head, dev_case = read_ind_file("/home/dianyu/Desktop/P/UCCA/test_data/")
+    # dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
+    #     dev_ent, dev_head, dev_case = read_ind_file("/home/dianyu/Desktop/P/UCCA/test_data/")
 
     pos_vocab = torch.load(pos_vocab_dir)
     pos_tensor = get_pos_tensor(pos_vocab, dev_pos)
@@ -113,10 +133,10 @@ def main():
 
     case_tensor = get_case_tensor(dev_case)
 
-    model_r, a_model_r, label_model_r, s_model_r = load_test_model(checkpoint_path)
+    model_r, a_model_r, label_model_r, s_model_r, rm_model_r = load_test_model(checkpoint_path)
 
     labeled_f1, unlabeled_f1 = get_validation_accuracy(dev_text_tensor, model_r, a_model_r,
-                                                       label_model_r, s_model_r, dev_text, dev_passages,
+                                                       label_model_r, s_model_r, rm_model_r, dev_text, dev_passages,
                                                        dev_pos, pos_tensor, labels, label2index, dev_ent,
                                                        ent_tensor, case_tensor, unroll,
                                                        eval_type="labeled", testing=False, testing_phase=testing_phase)
