@@ -100,7 +100,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         logger.info("num of training: %d" % len(cr_training))
         logger.info("num of dev: %d" % len(cr_validaton))
     elif not debugging:
-        # random.shuffle(training_data)
+        if opts.shuffle_val:
+            random.shuffle(training_data)
         # validation
         cr_training = training_data[:split_num]
         cr_validaton = training_data[split_num:]

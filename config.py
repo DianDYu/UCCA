@@ -35,6 +35,10 @@ def parse_opts():
                         action='store_true',
                         help="whether to split the training set for validation during training. Used for debugging. "
                              "Otherwise use the whole training set for both training and validation")
+    parser.add_argument('--shuffle_val',
+                        action='store_true',
+                        help="whether to shuffle data before splitting train and val"
+                             "if false, just the first num sents as training and the rest for val")
     parser.add_argument("--predict_remote",
                         action='store_true',
                         help="whether to predict the remote edges")
