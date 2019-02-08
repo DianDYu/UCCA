@@ -109,7 +109,6 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
         parents = t_node_i_in_l1.parents
 
-        """TODO: take care of remote edges"""
         if len(parents) > 1:
             primary_parent = get_primary_parent(t_node_i_in_l1)
         else:
@@ -183,8 +182,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
                 # remote loss
                 # only count when the node is in a higher level then the bottom l1 node
-                if rec_i > 0 and using_rm_model:
-                    rm_weight = rm_model(current_encoding, output_2d, sent_length)
+                if using_rm_model:
+                    rm_weight = rm_model(primary_parent_encoding, output_2d, sent_length)
                     rm_child = get_remote_child(primary_parent)
                     if not isinstance(rm_child, int):
                         rm_child_idx = get_child_idx_in_l0(rm_child)
