@@ -3,16 +3,32 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
+from config import parse_opts
+
 logging.basicConfig(format = '%(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
                     level = logging.INFO)
 logger = logging.getLogger(__name__)
 
+opts = parse_opts()
+debugging = opts.debugging
+testing_phase = opts.testing
+is_server = opts.is_server
 
-vocab_dir = "real_vocab.pt"
-embedding_dir = "/home/dianyu/Downloads/crawl-300d-2M.vec"
+if testing_phase:
+    vocab_dir = "real_vocab.pt"
+elif not debugging:
+    vocab_dir = "real_vocab.pt"
+else:
+    vocab_dir = "dbg_passage_vocab.pt"
+
+if not is_server:
+    embedding_dir = "/home/dianyu/Downloads/crawl-300d-2M.vec"
+else:
+    embedding_dir = "data/crawl-300d-2M.vec"
+
 # embedding_dir = "/home/dianyu/Downloads/wiki-news-300d-1M-subword.vec"
-# embedding_dir = "data/crawl-300d-2M.vec"
+
 emb_dim = 300
 
 

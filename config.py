@@ -49,5 +49,7 @@ def parse_opts():
                         type=int,
                         default=1,
                         help="random seed for initialization")
-
+    parser.add_argument('--is_server',
+                        action='store_true',
+                        help="for tuning only. chnage the diretory if running on server")
     return parser.parse_args()
