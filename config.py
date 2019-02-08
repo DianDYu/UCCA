@@ -42,6 +42,9 @@ def parse_opts():
     parser.add_argument("--predict_remote",
                         action='store_true',
                         help="whether to predict the remote edges")
+    parser.add_argument("--ignore_error",
+                        action='store_true',
+                        help="whether to ingore errors during training")
     parser.add_argument("--save_dir",
                         type=str,
                         default="models/debugging",

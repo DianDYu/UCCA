@@ -116,6 +116,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         else:
             cr_training = training_data[:]
             cr_validaton = cr_training
+        logger.info("num of training: %d" % len(cr_training))
+        logger.info("num of validation: %d" % len(cr_validaton))
 
     sent_ids, train_text_tensor, train_text, train_passages, train_pos, train_ent, train_case = zip(*cr_training)
     val_ids, val_text_tensor, val_text, val_passages, val_pos, val_ent, val_case = zip(*cr_validaton)
@@ -165,7 +167,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             if testing_phase:
                 assert int(sent_id) < 672010, "training data only"
 
-            if not debugging:
+            if not debugging or opts.ignore_error:
                 try:
                     loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                            a_model_optimizer, label_model, label_model_optimizer, s_model,
