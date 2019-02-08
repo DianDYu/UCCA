@@ -44,6 +44,7 @@ predict_remote = opts.predict_remote
 logger.info("using seed %d" % seed)
 logger.info("is debugging: %s" % debugging)
 logger.info("testing: %s" % testing_phase)
+logger.info("predict remote edges: %s" % predict_remote)
 logger.info("use_embedding: %s" % use_embedding)
 logger.info("reading_data: %s" % reading_data)
 logger.info("use_lowercase: %s" % use_lowercase)
@@ -167,12 +168,13 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                     total_loss += loss
                     num += 1
                 except Exception as e:
-                    logger.info("sent: %s has training error: %s" % (str(sent_id), e))
+                    # logger.info("sent: %s has training error: %s" % (str(sent_id), e))
+                    pass
             else:
                 loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                        a_model_optimizer, label_model, label_model_optimizer, s_model,
-                                       s_model_optimizer, criterion, ori_sent, pos, pos_tensor, ent,
-                                       ent_tensor, case_tensor, unroll)
+                                       s_model_optimizer, rm_model, rm_model_optimizer, criterion, ori_sent,
+                                       pos, pos_tensor, ent, ent_tensor, case_tensor, unroll)
                 total_loss += loss
                 num += 1
 
@@ -202,13 +204,13 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         if not opts.not_save:
             if labeled_f1 > best_score:
                 best_score = labeled_f1
-                save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
-                                epoch, labeled_f1)
+                save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
+                                ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
 
             # save every 10 epochs
             if epoch % 10 == 0:
-                save_test_model(model, a_model, label_model, s_model, n_words, pos_vocab.n_words, ent_vocab.n_words,
-                                epoch, labeled_f1)
+                save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
+                                ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
 
 
 def main():
@@ -240,8 +242,10 @@ def main():
         pos_vocab_dir = "passage_pos_vocab.pt"
         ent_vocab_dir = "passage_ent_vocab.pt"
     else:
-        train_file = "check_training/000000.xml"
-        dev_file = "check_evaluate/000000.xml"
+        # train_file = "check_training/000000.xml"
+        # dev_file = "check_evaluate/000000.xml"
+        train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
+        dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
         # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
         # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
         # train_file = "sample_data/train"
