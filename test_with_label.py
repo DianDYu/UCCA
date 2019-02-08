@@ -46,10 +46,12 @@ elif not debugging:
     vocab_dir = "passage_vocab.pt"
     pos_vocab_dir = "passage_pos_vocab.pt"
     ent_vocab_dir = "passage_ent_vocab.pt"
-    # dev_file_dir = "real_testing.pt"
-    # vocab_dir = "real_vocab.pt"
-    # pos_vocab_dir = "real_pos_vocab.pt"
-    # ent_vocab_dir = "real_ent_vocab.pt"
+
+    if opts.testing_dev:
+        dev_file_dir = "real_testing.pt"
+        vocab_dir = "real_vocab.pt"
+        pos_vocab_dir = "real_pos_vocab.pt"
+        ent_vocab_dir = "real_ent_vocab.pt"
     # checkpoint_path = "/home/dianyu/Downloads/epoch_47_f1_73.74.pt"
 
 else:
@@ -116,11 +118,13 @@ def load_test_model(checkpoint_path):
 
 
 def main():
-    # dev_ids, dev_text, dev_text_tensor, dev_passages, \
-    # dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
-
-    dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
-    dev_ent, dev_head, dev_case = read_ind_file("/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/")
+    if not opts.reading_data:
+        dev_ids, dev_text, dev_text_tensor, dev_passages, \
+            dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
+    else:
+        dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
+            dev_ent, dev_head, dev_case = \
+            read_ind_file("/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/")
 
     # vocab = torch.load(vocab_dir)
 
