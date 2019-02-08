@@ -31,6 +31,10 @@ def parse_opts():
     parser.add_argument("--not_save",
                         action='store_true',
                         help="not save trained models. used for debugging")
+    parser.add_argument('--do_val',
+                        action='store_true',
+                        help="whether to split the training set for validation during training. Used for debugging. "
+                             "Otherwise use the whole training set for both training and validation")
     parser.add_argument("--predict_remote",
                         action='store_true',
                         help="whether to predict the remote edges")

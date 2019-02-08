@@ -108,8 +108,13 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         logger.info("num of validation: %d" % len(cr_validaton))
     else:
         # debugging
-        cr_training = training_data[:]
-        cr_validaton = cr_training
+        if opts.do_val:
+            debugging_split = int(len(t_passages) * 0.9)
+            cr_training = training_data[:debugging_split]
+            cr_validaton = cr_training[debugging_split:]
+        else:
+            cr_training = training_data[:]
+            cr_validaton = cr_training
 
     sent_ids, train_text_tensor, train_text, train_passages, train_pos, train_ent, train_case = zip(*cr_training)
     val_ids, val_text_tensor, val_text, val_passages, val_pos, val_ent, val_case = zip(*cr_validaton)
@@ -248,12 +253,12 @@ def main():
     else:
         # train_file = "check_training/000000.xml"
         # dev_file = "check_evaluate/000000.xml"
-        train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
-        dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
+        # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
+        # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
         # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
         # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-        # train_file = "sample_data/train"
-        # dev_file = "sample_data/dev"
+        train_file = "check_training"
+        dev_file = "check_evaluate"
         train_file_dir = "dbg_passage_train_proc.pt"
         dev_file_dir = "dbg_passage_dev_proc.pt"
         vocab_dir = "dbg_passage_vocab.pt"
