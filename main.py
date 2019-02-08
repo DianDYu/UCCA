@@ -210,10 +210,11 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
                                 ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
 
-            # # save every 10 epochs
-            # if epoch % 10 == 0:
-            #     save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
-            #                     ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
+            # save every 10 epochs
+            if testing_phase:
+                if epoch % 10 == 0:
+                    save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
+                                    ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
 
 
 def main():
