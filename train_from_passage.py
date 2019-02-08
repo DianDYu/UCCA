@@ -272,10 +272,14 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
     if rm_loss_num == 0:
         # in case there is no rm_loss
+        print(rm_loss)
         rm_loss_num = 1
+        rm_loss_item = 0
+    else:
+        rm_loss_item = rm_loss.item()
 
-    return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num + propn_loss.item() / propn_loss_num +\
-        rm_loss.item() / rm_loss_num
+    return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num + propn_loss.item() / propn_loss_num \
+        + rm_loss_item / rm_loss_num
 
 
 def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
