@@ -18,7 +18,7 @@ is_server = opts.is_server
 if testing_phase:
     vocab_dir = "real_vocab.pt"
 elif not debugging:
-    vocab_dir = "real_vocab.pt"
+    vocab_dir = "passage_vocab.pt"
 else:
     vocab_dir = "dbg_passage_vocab.pt"
 

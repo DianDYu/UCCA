@@ -42,14 +42,14 @@ if testing_phase:
     # checkpoint_path = "/home/dianyu/Downloads/epoch_47_f1_73.74.pt"
 
 elif not debugging:
-    # dev_file_dir = "passage_dev_proc.pt"
-    # vocab_dir = "passage_vocab.pt"
-    # pos_vocab_dir = "passage_pos_vocab.pt"
-    # ent_vocab_dir = "passage_ent_vocab.pt"
-    dev_file_dir = "real_testing.pt"
-    vocab_dir = "real_vocab.pt"
-    pos_vocab_dir = "real_pos_vocab.pt"
-    ent_vocab_dir = "real_ent_vocab.pt"
+    dev_file_dir = "passage_dev_proc.pt"
+    vocab_dir = "passage_vocab.pt"
+    pos_vocab_dir = "passage_pos_vocab.pt"
+    ent_vocab_dir = "passage_ent_vocab.pt"
+    # dev_file_dir = "real_testing.pt"
+    # vocab_dir = "real_vocab.pt"
+    # pos_vocab_dir = "real_pos_vocab.pt"
+    # ent_vocab_dir = "real_ent_vocab.pt"
     # checkpoint_path = "/home/dianyu/Downloads/epoch_47_f1_73.74.pt"
 
 else:
