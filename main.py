@@ -178,8 +178,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 total_loss += loss
                 num += 1
 
-            if num % 1000 == 0:
-                logger.info("%d finished" % num)
+            # if num % 1000 == 0:
+            #     logger.info("%d finished" % num)
 
         logger.info("Loss for epoch %d: %.4f" % (epoch, total_loss / num))
         end_i = time.time()
@@ -210,10 +210,10 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
                                 ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
 
-            # save every 10 epochs
-            if epoch % 10 == 0:
-                save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
-                                ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
+            # # save every 10 epochs
+            # if epoch % 10 == 0:
+            #     save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
+            #                     ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
 
 
 def main():
