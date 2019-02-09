@@ -152,7 +152,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         else:
             current_encoding = output_i
             to_layer1 = True
-            rec_i = 0
+
             while True:
                 # attend to a previous node
                 left_most_child_idx = get_child_idx_in_l0(primary_parent, "left")
@@ -235,8 +235,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     break
 
                 grandparent_children = get_legit_children(primary_grandparent)
-                reordered_grandparent_children = reorder_children(grandparent_children
-                                                                  )
+                reordered_grandparent_children = reorder_children(grandparent_children)
                 if primary_parent != reordered_grandparent_children[-1]:
                     # attend to itself
                     attn_weight = a_model(node_encoding[primary_parent], output_2d, i)
@@ -245,8 +244,6 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     break
                 else:
                     primary_parent = primary_grandparent
-
-                rec_i += 1
 
         i += 1
 
@@ -271,8 +268,6 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         rm_model_optimizer.step()
 
     if rm_loss_num == 0:
-        # in case there is no rm_loss
-        print(rm_loss)
         rm_loss_num = 1
         rm_loss_item = 0
     else:
