@@ -318,8 +318,15 @@ class RemoteModel(nn.Module):
         self.linear = nn.Linear(500, self.hidden_size)
 
     def forward(self, output_i, output_2d, index):
-        rm_output_i = F.relu(self.linear(output_i))
-        rm_output_trans =  F.relu(self.linear(output_2d[:index + 1])).transpose(0, 1)
+        # detach otuput from lstm from the computation graph
+        # prevent parameters update in lstm and embedding
+        # detached_output_i = output_i.detach()
+        # detached_output_2d = output_2d.detach()
+        detached_output_i = output_i
+        detached_output_2d = output_2d
+
+        rm_output_i = F.relu(self.linear(detached_output_i))
+        rm_output_trans = F.relu(self.linear(detached_output_2d[:index + 1])).transpose(0, 1)
         mm = torch.mm(rm_output_i, rm_output_trans)
         prob = F.log_softmax(mm, dim=1)
         return prob
