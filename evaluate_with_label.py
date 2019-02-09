@@ -51,7 +51,6 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
         using_s_model = True
 
     using_rm_model = False
-
     if not isinstance(rm_model, str):
         using_rm_model = True
 
@@ -97,7 +96,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
             l1_position = len(l1._all) + 1
             ID = "{}{}{}".format("1", core.Node.ID_SEPARATOR, l1_position)
             terminal_node_in_l1 = FoundationalNode(ID, passage, tag=layer1.NodeTags.Punctuation if
-            is_punc else layer1.NodeTags.Foundational)
+                                                   is_punc else layer1.NodeTags.Foundational)
             terminal_node_in_l1.add(terminal_tag, terminal_node)
             l1_node_list.append(terminal_node_in_l1)
             node_encoding[terminal_node_in_l1] = output[i]
@@ -437,7 +436,6 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
         if testing_phase:
             ioutil.write_passage(pred_passage, outdir="pred_test/")
         else:
-
             labeled, unlabeled, labeled_remote, unlabeled_remote = get_score(pred_passage,
                                                                              tgt_passage, testing, eval_type)
 
