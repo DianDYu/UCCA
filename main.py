@@ -276,9 +276,9 @@ def main():
 
     """loading data"""
     train_ids, train_text, train_text_tensor, train_passages,\
-    train_pos, train_ent, train_head, train_case = passage_loading_data(train_file_dir)
+        train_pos, train_ent, train_head, train_case = passage_loading_data(train_file_dir)
     dev_ids, dev_text, dev_text_tensor, dev_passages,\
-    dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
+        dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
 
     prepare_pos_vocab(train_pos, dev_pos, pos_vocab_dir)
     prepare_ent_vocab(train_ent, dev_ent, ent_vocab_dir)
