@@ -128,6 +128,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                 # new_node = FoundationalNode(new_node_ID, passage, tag=layer1.NodeTags.Foundational)
                 """TODO: check this. not sure if it should be the left most child or top_k_ind"""
                 debug_left_most_id = get_left_most_id(parent_node)
+                # debug_left_most_id = top_k_ind
 
                 if using_s_model:
                     output_boundary = output[debug_left_most_id: i + 1]
