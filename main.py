@@ -5,6 +5,7 @@ import logging
 import torch
 import torch.nn as nn
 from torch import optim
+from tensorboardX import SummaryWriter
 
 from tqdm import tqdm
 
@@ -22,7 +23,6 @@ logging.basicConfig(format = '%(message)s',
 logger = logging.getLogger(__name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S", "G"]
 label2index = {}
@@ -51,6 +51,8 @@ logger.info("use_lowercase: %s" % use_lowercase)
 logger.info("unroll: %s" % unroll)
 logger.info("replace_digits: %s" % replace_digits)
 logger.info("")
+
+writer = SummaryWriter('runs/%s' %opts.save_dir)
 
 torch.manual_seed(opts.seed)
 random.seed(opts.seed)
@@ -193,6 +195,9 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         end_i = time.time()
         logger.info("training time elapsed: %.2fs" % (end_i - start_i))
 
+        writer.add_scalar('loss', total_loss / num, epoch)
+        writer.add_text('loss', 'loss at epoch %d: %d' % (total_loss / num, epoch))
+
         model.eval()
         a_model.eval()
         label_model.eval()
@@ -206,11 +211,21 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                                     rm_model, val_text, val_passages, val_pos, val_pos_tensor,
                                     labels, label2index, val_ent, val_ent_tensor,
                                     val_case_tensor, unroll, eval_type="labeled")
+
         logger.info("validation f1 labeled: %.4f" % labeled_f1)
         logger.info("validation f1 unlabeled: %.4f" % unlabeled_f1)
         logger.info("validation f1 labeled_remote: %.4f" % labeled_f1_remote)
         logger.info("validation f1 unlabeled_remote: %.4f" % unlabeled_f1_remote)
         logger.info("")
+
+        writer.add_scalar('labeled_f1', labeled_f1, epoch)
+        writer.add_text('labeled_f1', 'labeled_f1 at epoch %d: %d' % (labeled_f1, epoch))
+        writer.add_scalar('unlabeled_f1', unlabeled_f1, epoch)
+        writer.add_text('unlabeled_f1', 'unlabeled_f1 at epoch %d: %d' % (unlabeled_f1, epoch))
+        writer.add_scalar('labeled_f1_remote', labeled_f1_remote, epoch)
+        writer.add_text('labeled_f1_remote', 'labeled_f1_remote at epoch %d: %d' % (labeled_f1_remote, epoch))
+        writer.add_scalar('unlabeled_f1_remote', unlabeled_f1_remote, epoch)
+        writer.add_text('unlabeled_f1_remote', 'unlabeled_f1_remote at epoch %d: %d' % (unlabeled_f1_remote, epoch))
 
         if not opts.not_save:
             if labeled_f1 > best_score:
@@ -223,6 +238,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 if epoch % 10 == 0:
                     save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
                                     ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
+    writer.close()
 
 
 def main():
