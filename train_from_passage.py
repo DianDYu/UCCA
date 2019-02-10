@@ -247,6 +247,13 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
 
         i += 1
 
+    # if using_rm_model:
+    #     total_loss = unit_loss / unit_loss_num + label_loss / label_loss_num +\
+    #         propn_loss / propn_loss_num + rm_loss / rm_loss_num
+    # else:
+    #     total_loss = unit_loss / unit_loss_num + label_loss / label_loss_num + \
+    #                  propn_loss / propn_loss_num
+    
     total_loss = unit_loss + label_loss + propn_loss + rm_loss
     total_loss.backward()
 
