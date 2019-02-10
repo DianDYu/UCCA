@@ -196,7 +196,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         logger.info("training time elapsed: %.2fs" % (end_i - start_i))
 
         writer.add_scalar('loss', total_loss / num, epoch)
-        writer.add_text('loss', 'loss at epoch %d: %d' % (total_loss / num, epoch))
+        # writer.add_text('loss', 'loss at epoch %d: %d' % (total_loss / num, epoch))
 
         model.eval()
         a_model.eval()
@@ -218,14 +218,14 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         logger.info("validation f1 unlabeled_remote: %.4f" % unlabeled_f1_remote)
         logger.info("")
 
-        writer.add_scalar('labeled_f1', labeled_f1, epoch)
-        writer.add_text('labeled_f1', 'labeled_f1 at epoch %d: %d' % (labeled_f1, epoch))
-        writer.add_scalar('unlabeled_f1', unlabeled_f1, epoch)
-        writer.add_text('unlabeled_f1', 'unlabeled_f1 at epoch %d: %d' % (unlabeled_f1, epoch))
-        writer.add_scalar('labeled_f1_remote', labeled_f1_remote, epoch)
-        writer.add_text('labeled_f1_remote', 'labeled_f1_remote at epoch %d: %d' % (labeled_f1_remote, epoch))
-        writer.add_scalar('unlabeled_f1_remote', unlabeled_f1_remote, epoch)
-        writer.add_text('unlabeled_f1_remote', 'unlabeled_f1_remote at epoch %d: %d' % (unlabeled_f1_remote, epoch))
+        writer.add_scalar('labeled_f1', labeled_f1 * 100, epoch)
+        # writer.add_text('labeled_f1', 'labeled_f1 at epoch %d: %d' % (labeled_f1, epoch))
+        writer.add_scalar('unlabeled_f1', unlabeled_f1 * 100, epoch)
+        # writer.add_text('unlabeled_f1', 'unlabeled_f1 at epoch %d: %d' % (unlabeled_f1, epoch))
+        writer.add_scalar('labeled_f1_remote', labeled_f1_remote * 100, epoch)
+        # writer.add_text('labeled_f1_remote', 'labeled_f1_remote at epoch %d: %d' % (labeled_f1_remote, epoch))
+        writer.add_scalar('unlabeled_f1_remote', unlabeled_f1_remote * 100, epoch)
+        # writer.add_text('unlabeled_f1_remote', 'unlabeled_f1_remote at epoch %d: %d' % (unlabeled_f1_remote, epoch))
 
         if not opts.not_save:
             if labeled_f1 > best_score:
