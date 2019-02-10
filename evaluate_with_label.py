@@ -54,7 +54,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
     if not isinstance(rm_model, str):
         using_rm_model = True
 
-    max_recur = 5
+    max_recur = 7
     i = 0
     sent_length = len(ori_sent)
 
