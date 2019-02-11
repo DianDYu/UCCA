@@ -286,8 +286,11 @@ class LabelModel(nn.Module):
         self.labels = labels
         self.label_size = len(self.labels)
 
-        self.linear = nn.Linear(1000, 500)
-        self.map_label = nn.Linear(500, self.label_size)
+        # self.linear = nn.Linear(1000, 500)
+        # self.map_label = nn.Linear(500, self.label_size)
+
+        self.fc = nn.Linear(500, 100)
+        self.map_label = nn.Linear(100, self.label_size)
 
     def forward(self, parent_enc, child_enc):
         """TODO: not sure if we should use matrix multip"""
@@ -298,10 +301,16 @@ class LabelModel(nn.Module):
         # mm = torch.mm(p_parent_enc, p_child_enc)
         # to_label = self.map_label()
 
-        # concat_enc: (1, 1000)
-        concat_enc = torch.cat((parent_enc, child_enc), 1)
-        # reduce_concat_enc: (1, 500)
-        reduce_concat_enc = F.relu(self.linear(concat_enc))
+        # # concat_enc: (1, 1000)
+        # concat_enc = torch.cat((parent_enc, child_enc), 1)
+        # # reduce_concat_enc: (1, 500)
+        # reduce_concat_enc = F.relu(self.linear(concat_enc))
+
+        # try to only use the child encoding to predict labels
+        # reduce_concat_enc = child_enc
+
+        # add a fully connected layer before the output layer
+        reduce_concat_enc = F.relu(self.fc(child_enc))
         prob = F.log_softmax(self.map_label(reduce_concat_enc), dim=1)
         return prob
 
