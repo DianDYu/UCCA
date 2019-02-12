@@ -211,10 +211,10 @@ class SubModel(nn.Module):
 
         self.hidden_size = self.hidden_size // self.num_directions
 
-        self.drop = nn.Dropout(self.dropout)
-        self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
-                            dropout=self.dropout, bidirectional=(self.num_directions == 2))
-        self.hidden = self.init_hidden()
+        # self.drop = nn.Dropout(self.dropout)
+        # self.lstm = nn.LSTM(self.input_size, self.hidden_size, num_layers=self.num_layers,
+        #                     dropout=self.dropout, bidirectional=(self.num_directions == 2))
+        # self.hidden = self.init_hidden()
 
         # use for predicting combining nodes from layer 0 to layer 1
         # 1 is to combine; 0 is to not combine
@@ -231,18 +231,30 @@ class SubModel(nn.Module):
                 torch.zeros(4, self.batch_size, self.hidden_size, device=device))
 
     def forward(self, input, inp_hidden="input_hidden", layer0=False):
-        if isinstance(inp_hidden, str):
-            inp_hidden = self.hidden
+        # if isinstance(inp_hidden, str):
+        #     inp_hidden = self.hidden
 
-        output, hidden_final = self.lstm(input, inp_hidden)
-        # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
+        # output, hidden_final = self.lstm(input, inp_hidden)
+        # # last_otuput should be of size (1, batch_size, num_dir * hidden_size)
+        #
+        # # added_output = output[0] + output[-1]
+        # if use_both_ends:
+        #     concat_output = torch.cat((output[0], output[1]), 1)
+        #     added_output = F.relu(self.reduce_linear(concat_output))
+        # else:
+        #     added_output = output[-1]
 
-        # added_output = output[0] + output[-1]
-        if use_both_ends:
-            concat_output = torch.cat((output[0], output[1]), 1)
-            added_output = F.relu(self.reduce_linear(concat_output))
-        else:
-            added_output = output[-1]
+
+        # implement the correct subtraction
+        # to get the forward and backward separately
+        # output_i: size(seq_len, batch, num_dir, hidden_size)
+        output_i = input[0].view(1, 1, 2, 250)
+        output_j = input[-1].view(1, 1, 2, 250)
+        f_i = output_i.index_select(2, torch.tensor([0], dtype=torch.long, device=device)).view(1, 250)
+        b_i = output_i.index_select(2, torch.tensor([1], dtype=torch.long, device=device)).view(1, 250)
+        f_j = output_j.index_select(2, torch.tensor([0], dtype=torch.long, device=device)).view(1, 250)
+        b_j = output_j.index_select(2, torch.tensor([1], dtype=torch.long, device=device)).view(1, 250)
+        added_output = torch.cat((f_j - f_i, b_i - b_j), 1)
 
         # nodes combination prediction
         is_ner_prob = 0
