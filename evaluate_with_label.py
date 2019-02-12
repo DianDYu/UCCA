@@ -356,7 +356,31 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
     #         pred_label = labels[label_top_k_ind]
     #         head_node.add(pred_label, node)
 
+    # passage = clean_nodes(passage)
+
     # ioutil.write_passage(passage)
+
+    return passage
+
+
+def clean_nodes(passage):
+    """
+    clean nodes without parents and children
+    :param passage:
+    :return:
+    """
+    l0 = passage.layer("0")
+    l1 = passage.layer("1")
+    l0_all = l0.all
+    l1_all = l1.all
+    for node in l0_all:
+        if len(node.incoming) == 0 and len(node.outgoing) == 0:
+            passage.layer("0")._remove_node(node)
+            passage._remove_node(node)
+    for node in l1_all:
+        if len(node.incoming) == 0 and len(node.outgoing) == 0:
+            passage.layer("1")._remove_node(node)
+            passage._remove_node(node)
 
     return passage
 
