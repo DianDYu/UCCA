@@ -15,8 +15,8 @@ predict_l1 = True
 
 def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model, a_model_optimizer,
                     label_model, label_model_optimizer, s_model, s_model_optimizer, rm_model,
-                    rm_model_optimizer, criterion, ori_sent, pos, pos_tensor, ent, ent_tensor,
-                    case_tensor, unroll):
+                    rm_model_optimizer, rm_lstm_model, rm_lstm_optimizer, criterion, ori_sent, pos,
+                    pos_tensor, ent, ent_tensor, case_tensor, unroll):
 
     model_optimizer.zero_grad()
     a_model_optimizer.zero_grad()
@@ -31,6 +31,9 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     if not isinstance(rm_model, str):
         rm_model_optimizer.zero_grad()
         using_rm_model = True
+        rm_lstm_optimizer.zero_grad()
+        output_rm, hidden_rm = rm_lstm_model(sent_tensor, pos_tensor, ent_tensor, case_tensor, unroll)
+        output_2d_rm = output_rm.squeeze(1)
 
     max_recur = 5
     max_grad_norm = 1.0
@@ -183,7 +186,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 # remote loss
                 # only count when the node is in a higher level then the bottom l1 node
                 if using_rm_model:
-                    rm_weight = rm_model(primary_parent_encoding, output_2d, sent_length)
+                    output_boundary_rm = output_rm[left_most_child_idx: i + 1]
+                    primary_parent_encoding_rm, _ = s_model(output_boundary_rm)
+                    rm_weight = rm_model(primary_parent_encoding_rm, output_2d_rm, sent_length)
+
                     rm_child = get_remote_child(primary_parent)
                     if not isinstance(rm_child, int):
                         rm_child_idx = get_child_idx_in_l0(rm_child)
@@ -265,6 +271,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         torch.nn.utils.clip_grad_norm_(parameters=s_model.parameters(), max_norm=max_grad_norm)
     if using_rm_model:
         torch.nn.utils.clip_grad_norm_(parameters=rm_model.parameters(), max_norm=max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(parameters=rm_lstm_model.parameters(), max_norm=max_grad_norm)
 
     model_optimizer.step()
     a_model_optimizer.step()
@@ -273,6 +280,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         s_model_optimizer.step()
     if using_rm_model:
         rm_model_optimizer.step()
+        rm_lstm_optimizer.step()
 
     if rm_loss_num == 0:
         rm_loss_num = 1
