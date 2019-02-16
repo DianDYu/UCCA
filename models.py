@@ -301,6 +301,12 @@ class LabelModel(nn.Module):
         # self.linear = nn.Linear(1000, 500)
         # self.map_label = nn.Linear(500, self.label_size)
 
+        # self.parent_linear = nn.Linear(500, 250)
+        # self.child_linear = nn.Linear(500, 250)
+        # self.concat_linear = nn.Linear(1000, 500)
+        # self.fc = nn.Linear(500, 100)
+        # self.map_label = nn.Linear(100, self.label_size)
+
         self.fc = nn.Linear(500, 100)
         self.map_label = nn.Linear(100, self.label_size)
 
@@ -320,6 +326,13 @@ class LabelModel(nn.Module):
 
         # try to only use the child encoding to predict labels
         # reduce_concat_enc = child_enc
+        #
+        # p_parent_enc = F.relu(self.parent_linear(parent_enc))
+        # p_child_enc = F.relu(self.child_linear(child_enc))
+        # concat_enc = torch.cat((p_child_enc, p_parent_enc), 1)
+        # concat_enc = F.relu(self.concat_linear(torch.cat((child_enc, parent_enc), 1)))
+        # reduce_concat_enc = F.relu(self.fc(concat_enc))
+        # prob = F.log_softmax(self.map_label(reduce_concat_enc), dim=1)
 
         # add a fully connected layer before the output layer
         reduce_concat_enc = F.relu(self.fc(child_enc))
