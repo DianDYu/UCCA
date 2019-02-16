@@ -1,4 +1,5 @@
 import logging
+import copy
 
 import torch
 
@@ -89,6 +90,7 @@ def load_test_model(checkpoint_path):
     label_model = LabelModel(labels)
     s_model = SubModel()
     rm_model = RemoteModel()
+    rm_lstm_model = copy.deepcopy(a_model)
     model.load_state_dict(checkpoint['model'])
     a_model.load_state_dict(checkpoint['a_model'])
     label_model.load_state_dict(checkpoint['label_model'])
@@ -103,8 +105,12 @@ def load_test_model(checkpoint_path):
         rm_model.load_state_dict(checkpoint["rm_model"])
         rm_model.to(device)
         rm_model.eval()
+        rm_lstm_model.load_state_dict(checkpoint["rm_lstm_model"])
+        rm_lstm_model.to(device)
+        rm_lstm_model.eval()
     else:
         rm_model = "remote_model"
+        rm_lstm_model = "remote_lstm_model"
 
     model.to(device)
     a_model.to(device)
@@ -114,7 +120,7 @@ def load_test_model(checkpoint_path):
     label_model.eval()
     logger.info("Finished loading model")
     logger.info("")
-    return model, a_model, label_model, s_model, rm_model
+    return model, a_model, label_model, s_model, rm_model, rm_lstm_model
 
 
 def main():
@@ -140,11 +146,11 @@ def main():
 
     case_tensor = get_case_tensor(dev_case)
 
-    model_r, a_model_r, label_model_r, s_model_r, rm_model_r = load_test_model(checkpoint_path)
+    model_r, a_model_r, label_model_r, s_model_r, rm_model_r, rm_lstm_modrl_r = load_test_model(checkpoint_path)
 
     labeled_f1, unlabeled_f1, labeled_f1_remote, unlabeled_f1_remote = \
         get_validation_accuracy(dev_text_tensor, model_r, a_model_r,
-                                label_model_r, s_model_r, rm_model_r, dev_text, dev_passages,
+                                label_model_r, s_model_r, rm_model_r, rm_lstm_modrl_r, dev_text, dev_passages,
                                 dev_pos, pos_tensor, labels, label2index, dev_ent,
                                 ent_tensor, case_tensor, unroll,
                                 eval_type="labeled", testing=False, testing_phase=testing_phase)
