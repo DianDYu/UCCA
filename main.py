@@ -1,6 +1,7 @@
 import random
 import time
 import logging
+import copy
 
 import torch
 import torch.nn as nn
@@ -85,8 +86,13 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     if predict_remote:
         rm_model = RemoteModel().to(device)
         rm_model_optimizer = optim.Adam(rm_model.parameters())
+        rm_lstm_model = copy.deepcopy(model)
+        rm_lstm_optimizer = optim.Adam(rm_lstm_model.parameters())
     else:
         rm_model = rm_model_optimizer = "remote_model"
+        rm_lstm_model = rm_lstm_optimizer = "rm_lstm_model"
+
+
 
     best_score = 0
 
@@ -158,6 +164,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             s_model.train()
         if predict_remote:
             rm_model.train()
+            rm_lstm_model.train()
 
         for sent_id, sent_tensor, train_passage, ori_sent, pos, pos_tensor, ent, ent_tensor, case_tensor in \
                 tqdm(zip(sent_ids, train_text_tensor, train_passages, train_text, train_pos, train_pos_tensor,
@@ -173,7 +180,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
                 try:
                     loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                            a_model_optimizer, label_model, label_model_optimizer, s_model,
-                                           s_model_optimizer, rm_model, rm_model_optimizer, criterion, ori_sent,
+                                           s_model_optimizer, rm_model, rm_model_optimizer, rm_lstm_model,
+                                           rm_lstm_optimizer, criterion, ori_sent,
                                            pos, pos_tensor, ent, ent_tensor, case_tensor, unroll)
                     total_loss += loss
                     num += 1
@@ -183,7 +191,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             else:
                 loss = train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                        a_model_optimizer, label_model, label_model_optimizer, s_model,
-                                       s_model_optimizer, rm_model, rm_model_optimizer, criterion, ori_sent,
+                                       s_model_optimizer, rm_model, rm_model_optimizer, rm_lstm_model,
+                                       rm_lstm_optimizer, criterion, ori_sent,
                                        pos, pos_tensor, ent, ent_tensor, case_tensor, unroll)
                 total_loss += loss
                 num += 1
@@ -205,10 +214,11 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
             s_model.eval()
         if predict_remote:
             rm_model.eval()
+            rm_lstm_model.eval()
 
         labeled_f1, unlabeled_f1, labeled_f1_remote, unlabeled_f1_remote = \
             get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model,
-                                    rm_model, val_text, val_passages, val_pos, val_pos_tensor,
+                                    rm_model, rm_lstm_model, val_text, val_passages, val_pos, val_pos_tensor,
                                     labels, label2index, val_ent, val_ent_tensor,
                                     val_case_tensor, unroll, eval_type="labeled")
 
@@ -230,8 +240,8 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         if not opts.not_save:
             if labeled_f1 > best_score:
                 best_score = labeled_f1
-                save_test_model(model, a_model, label_model, s_model, rm_model, n_words, pos_vocab.n_words,
-                                ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
+                save_test_model(model, a_model, label_model, s_model, rm_model, rm_lstm_model, n_words,
+                                pos_vocab.n_words, ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
 
             # # save every 10 epochs
             # if testing_phase:
