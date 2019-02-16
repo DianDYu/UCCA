@@ -24,7 +24,8 @@ assume the label of remote edge is always "A"
 """
 
 
-def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_model, ori_sent, dev_passage, pos,
+def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_model, rm_lstm_model,
+                        ori_sent, dev_passage, pos,
                         pos_tensor, labels, label2index, ent, ent_tensor, case_tensor, unroll):
     """
 
@@ -53,6 +54,8 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
     using_rm_model = False
     if not isinstance(rm_model, str):
         using_rm_model = True
+        output_rm, hidden_rm = rm_lstm_model(sent_tensor, pos_tensor, ent_tensor, case_tensor, unroll)
+        output_2d_rm = output_rm.squeeze(1)
 
     max_recur = 7
     i = 0
@@ -137,6 +140,9 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                                                            layer0=True)
                     else:
                         new_node_enc, combine_l0 = s_model(output_boundary, layer0=True)
+                        if using_rm_model:
+                            output_boundary_rm = output_rm[debug_left_most_id: i + 1]
+                            new_node_enc_rm, _ = s_model(output_boundary_rm)
                 else:
                     new_node_enc = output[i] - output[debug_left_most_id]
 
@@ -239,7 +245,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
                             # predict remote edge
                             if using_rm_model:
-                                rm_weight = rm_model(new_node_enc, output_2d, sent_length)
+                                rm_weight = rm_model(new_node_enc_rm, output_2d_rm, sent_length)
                                 rm_top_k_value, rm_top_k_ind = torch.topk(rm_weight, 1)
                                 if rm_top_k_ind < get_left_most_id(new_node):
                                     rm_pred_label = "A"
@@ -293,6 +299,9 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                         r_new_node_enc, combine_l0 = s_model(output_boundary, inp_hidden=hidden[debug_left_most_id - 1])
                     else:
                         r_new_node_enc, combine_l0 = s_model(output_boundary)
+                        if using_rm_model:
+                            output_boundary_rm = output_rm[debug_left_most_id: i + 1]
+                            r_new_node_enc_rm, _ = s_model(output_boundary_rm)
                 else:
                     r_new_node_enc = output[i] - output[debug_left_most_id]
 
@@ -322,7 +331,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
                         # predict remote edge
                         if using_rm_model:
-                            rm_weight = rm_model(r_new_node_enc, output_2d, sent_length)
+                            rm_weight = rm_model(r_new_node_enc_rm, output_2d_rm, sent_length)
                             rm_top_k_value, rm_top_k_ind = torch.topk(rm_weight, 1)
                             if rm_top_k_ind < get_left_most_id(new_node):
                                 rm_pred_label = "A"
@@ -358,6 +367,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
 
     # passage = clean_nodes(passage)
 
+    # print(passage.ID)
     # ioutil.write_passage(passage)
 
     return passage
@@ -432,7 +442,8 @@ def get_right_most_id(node):
     return int(index_in_l0) - 1
 
 
-def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, rm_model, val_text, val_passages,
+def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, rm_model, rm_lstm_model,
+                            val_text, val_passages,
                             val_pos, val_pos_tensor, labels, label2index, val_ent, val_ent_tensor,
                             val_case_tensor, unroll, eval_type="unlabeled",
                             testing=False, testing_phase=False):
@@ -454,7 +465,8 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
         # print(tgt_passage.ID)
 
         with torch.no_grad():
-            pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_model, ori_sent,
+            pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_model,
+                                               rm_lstm_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index, ent,
                                                ent_tensor, case_tensor, unroll)
 
