@@ -199,8 +199,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     to_layer1 = False
                     propn_loss += criterion(combine_l0, torch.tensor([0], dtype=torch.long, device=device))
                     propn_loss_num += 1
-                    dis_loss += criterion(is_dis, torch.tensor([0], dtype=torch.long, device=device))
-                    dis_loss_num += 1
+                    # dis_loss += criterion(is_dis, torch.tensor([0], dtype=torch.long, device=device))
+                    # dis_loss_num += 1
 
                 node_encoding[primary_parent] = primary_parent_encoding
 
