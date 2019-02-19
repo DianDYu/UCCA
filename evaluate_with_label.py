@@ -151,7 +151,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                 # need to combine nodes in l0
 
                 # discontinuous unit
-                if dis_topk_ind.data[0] == 1:
+                if dis_topk_ind.data[0] == 1 and propn_topk_ind.data[0] == 1:
                     dis_left_node_l0 = l0_node_list[top_k_ind]
                     dis_left_node_l1 = dis_left_node_l0.parents[0]
                     dis_left_node_l0._incoming = []
