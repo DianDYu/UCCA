@@ -475,6 +475,7 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
         # try:
 
         # print(tgt_passage.ID)
+        # print(tgt_passage)
 
         with torch.no_grad():
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_model,
@@ -533,6 +534,7 @@ def get_score(pred, tgt, testing, eval_type="unlabeled"):
     print_verbose = True
 
     if testing and print_verbose:
+        print(tgt.ID)
         verbose = True
         units = True
     else:
