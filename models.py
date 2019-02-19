@@ -221,6 +221,12 @@ class SubModel(nn.Module):
         self.linear = nn.Linear(500, 100)
         self.ner_mapping = nn.Linear(100, 2)
 
+        # use to predict if it is discontinuity
+        # 1: is discontinuity (only use the two nodes as the children of the parent node)
+        # 0: is not discontinuity (use all the nodes as the children. the case for ners)
+        self.dis_linear = nn.Linear(500, 100)
+        self.dis_mapping = nn.Linear(100, 2)
+
         if use_both_ends == True:
             self.reduce_linear = nn.Linear(1000, 500)
 
@@ -230,7 +236,7 @@ class SubModel(nn.Module):
         return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
                 torch.zeros(4, self.batch_size, self.hidden_size, device=device))
 
-    def forward(self, input, inp_hidden="input_hidden", layer0=False):
+    def forward(self, input, inp_hidden="input_hidden", layer0=False, dis=False):
         # if isinstance(inp_hidden, str):
         #     inp_hidden = self.hidden
 
@@ -262,6 +268,13 @@ class SubModel(nn.Module):
             h1 = self.linear(added_output)
             h2 = self.ner_mapping(F.relu(h1))
             is_ner_prob = F.log_softmax(h2, dim=1)
+
+        is_dis_prob = 0
+        if dis:
+            h1_dis = self.dis_linear(added_output)
+            h2_dis = self.dis_mapping(F.relu(h1_dis))
+            is_dis_prob = F.log_softmax(h2_dis, dim=1)
+            return added_output, is_ner_prob, is_dis_prob
 
         return added_output, is_ner_prob
 
