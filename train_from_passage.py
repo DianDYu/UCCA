@@ -44,6 +44,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     label_loss_num = 0
     propn_loss = 0
     propn_loss_num = 0
+    dis_loss = 0
+    dis_loss_num = 0
     rm_loss = 0
     rm_loss_num = 0
 
@@ -83,7 +85,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     if unroll and i > 0:
                         output_i, combine_l0 = s_model(output_boundary, inp_hidden=hidden[i - 1], layer0=True)
                     else:
-                        output_i, combine_l0 = s_model(output_boundary, layer0=True)
+                        output_i, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True)
                 else:
                     output_i = output[right_most_ner] - output[i]
 
@@ -102,13 +104,35 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     unit_loss_num += 1
                     propn_loss += criterion(combine_l0, torch.tensor([1], dtype=torch.long, device=device))
                     propn_loss_num += 1
+                    dis_loss += criterion(is_dis, torch.tensor([0], dtype=torch.long, device=device))
+                    dis_loss_num += 1
 
                 i = right_most_ner
                 node_encoding[t_node_i_in_l1] = output_i
             else:
                 """TODO: fix this"""
                 # deal with remote edges like "so ... that" in 105005
-                assert False, "sent %s cannot be processed for now" % str(train_passage.ID)
+                # assert False, "sent %s cannot be processed for now" % str(train_passage.ID)
+                assert len(t_node_i_in_l1_legit_children) == 2, "assumed the number of discontinuity is 2"
+                right_most_word_id = get_child_idx_in_l0(t_node_i_in_l1, "right", reorder=True)
+                dis_word_attn_weight = a_model(output[i], output_2d, i)
+                if i != right_most_word_id:
+                    unit_loss += criterion(dis_word_attn_weight, torch.tensor([i], dtype=torch.long, device=device))
+                    unit_loss_num += 1
+                else:
+                    left_most_word_id = get_child_idx_in_l0(t_node_i_in_l1)
+                    output_boundary_dis = output[left_most_word_id: i + 1]
+                    output_i_dis, combine_l0_dis, is_dis = s_model(output_boundary_dis, layer0=True, dis=True)
+                    unit_loss += criterion(dis_word_attn_weight, torch.tensor([left_most_word_id],
+                                                                              dtype=torch.long, device=device))
+                    unit_loss_num += 1
+                    propn_loss += criterion(combine_l0_dis, torch.tensor([1], dtype=torch.long, device=device))
+                    propn_loss_num += 1
+                    dis_loss += criterion(is_dis, torch.tensor([1], dtype=torch.long, device=device))
+                    dis_loss_num += 1
+                    i += 1
+                    continue
+
 
         parents = t_node_i_in_l1.parents
 
@@ -260,7 +284,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     #     total_loss = unit_loss / unit_loss_num + label_loss / label_loss_num + \
     #                  propn_loss / propn_loss_num
 
-    total_loss = unit_loss + label_loss + propn_loss + rm_loss
+    total_loss = unit_loss + label_loss + propn_loss + dis_loss + rm_loss
     total_loss.backward()
 
     # gradient clipping
@@ -289,7 +313,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
         rm_loss_item = rm_loss.item()
 
     return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num + propn_loss.item() / propn_loss_num \
-        + rm_loss_item / rm_loss_num
+        + dis_loss.item() / dis_loss_num + rm_loss_item / rm_loss_num
 
 
 def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
