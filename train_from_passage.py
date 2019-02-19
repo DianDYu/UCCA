@@ -191,7 +191,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                                                       inp_hidden=hidden[left_most_child_idx - 1],
                                                                       layer0=True)
                     else:
-                        primary_parent_encoding, combine_l0 = s_model(output_boundary, layer0=True)
+                        primary_parent_encoding, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True)
                 else:
                     primary_parent_encoding = output_i - output[left_most_child_idx]
 
@@ -199,6 +199,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     to_layer1 = False
                     propn_loss += criterion(combine_l0, torch.tensor([0], dtype=torch.long, device=device))
                     propn_loss_num += 1
+                    dis_loss += criterion(is_dis, torch.tensor([0], dtype=torch.long, device=device))
+                    dis_loss_num += 1
 
                 node_encoding[primary_parent] = primary_parent_encoding
 
@@ -312,8 +314,14 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
     else:
         rm_loss_item = rm_loss.item()
 
+    if dis_loss_num == 0:
+        dis_loss_num = 1
+        dis_loss_item = 0
+    else:
+        dis_loss_item = dis_loss.item()
+
     return unit_loss.item() / unit_loss_num + label_loss.item() / label_loss_num + propn_loss.item() / propn_loss_num \
-        + dis_loss.item() / dis_loss_num + rm_loss_item / rm_loss_num
+        + dis_loss_item / dis_loss_num + rm_loss_item / rm_loss_num
 
 
 def get_child_idx_in_l0(node, direction="left", get_node=False, reorder=False):
