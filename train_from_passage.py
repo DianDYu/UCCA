@@ -112,7 +112,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
             else:
                 """TODO: fix this"""
                 # deal with remote edges like "so ... that" in 105005
-                assert False, "sent %s cannot be processed for now" % str(train_passage.ID)
+                # assert False, "sent %s cannot be processed for now" % str(train_passage.ID)
 
                 assert len(t_node_i_in_l1_legit_children) == 2, "assumed the number of discontinuity is 2"
                 right_most_word_id = get_child_idx_in_l0(t_node_i_in_l1, "right", reorder=True)
@@ -123,7 +123,7 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 else:
                     left_most_word_id = get_child_idx_in_l0(t_node_i_in_l1)
                     output_boundary_dis = output[left_most_word_id: i + 1]
-                    output_i_dis, combine_l0_dis, is_dis = s_model(output_boundary_dis, layer0=True, dis=True)
+                    output_i, combine_l0_dis, is_dis = s_model(output_boundary_dis, layer0=True, dis=True)
                     unit_loss += criterion(dis_word_attn_weight, torch.tensor([left_most_word_id],
                                                                               dtype=torch.long, device=device))
                     unit_loss_num += 1
@@ -131,8 +131,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     propn_loss_num += 1
                     dis_loss += criterion(is_dis, torch.tensor([1], dtype=torch.long, device=device))
                     dis_loss_num += 1
-                    i += 1
-                    continue
+                    # i += 1
+                    # continue
 
 
         parents = t_node_i_in_l1.parents
