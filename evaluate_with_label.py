@@ -159,11 +159,12 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                     dis_left_node_l1._outgoing = []
                     terminal_node_in_l1.add(terminal_tag, dis_left_node_l0)
 
-                    i += 1
-                    continue
+                    # i += 1
+                    # continue
 
                 combined = False
-                if propn_topk_ind.data[0] == 1 and debug_left_most_id not in already_in_propn:
+                if propn_topk_ind.data[0] == 1 and dis_topk_ind.data[0] == 0 and \
+                        debug_left_most_id not in already_in_propn:
                     # check if within the left and right boundary if there is already a node in propn
                     valid_attention = True
                     for j in range(debug_left_most_id, i + 1):
