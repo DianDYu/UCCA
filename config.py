@@ -59,7 +59,7 @@ def parse_opts():
                         help="random seed for initialization")
     parser.add_argument('--epochs',
                         type=int,
-                        default=60,
+                        default=20,
                         help="number of epochs to train")
     parser.add_argument('--is_server',
                         action='store_true',
