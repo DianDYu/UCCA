@@ -124,7 +124,7 @@ def main():
     else:
         dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
             dev_ent, dev_head, dev_case = \
-            read_ind_file("/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/")
+            read_ind_file("/home/dianyu/Desktop/P/UCCA/test_data/")
 
     # vocab = torch.load(vocab_dir)
 
