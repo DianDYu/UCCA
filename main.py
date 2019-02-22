@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S", "G"]
+labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "S", "G"]
+# labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S", "G"]
 label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
@@ -78,7 +79,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     label_model_optimizer = optim.Adam(label_model.parameters())
 
     if using_sub_model:
-        s_model = SubModel().to(device)
+        s_model = SubModel(pos_vocab.n_words, ent_vocab.n_words).to(device)
         s_model_optimizer = optim.Adam(s_model.parameters())
     else:
         s_model = s_model_optimizer = "sub_lstm_model"
@@ -282,12 +283,12 @@ def main():
     else:
         # train_file = "check_training/000000.xml"
         # dev_file = "check_evaluate/000000.xml"
-        # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
-        # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/114005.xml"
+        train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/105005.xml"
+        dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/105005.xml"
         # train_file = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/"
         # dev_file = "/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/"
-        train_file = "check_training"
-        dev_file = "check_evaluate"
+        # train_file = "check_training"
+        # dev_file = "check_evaluate"
         train_file_dir = "dbg_passage_train_proc.pt"
         dev_file_dir = "dbg_passage_dev_proc.pt"
         vocab_dir = "dbg_passage_vocab.pt"
