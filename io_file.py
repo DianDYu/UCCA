@@ -18,7 +18,7 @@ torch.manual_seed(1)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "T", "S", "G"]
+labels = ["A", "L", "H", "C", "R", "U", "P", "D", "F", "E", "N", "S", "G"]
 label2index = {}
 for label in labels:
     label2index[label] = len(label2index)
