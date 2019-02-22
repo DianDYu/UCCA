@@ -80,7 +80,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
 
     if using_sub_model:
         s_model = SubModel(pos_vocab.n_words, ent_vocab.n_words).to(device)
-        s_model_optimizer = optim.Adam(s_model.parameters())
+        s_model_optimizer = optim.Adam(s_model.parameters(), betas=(0.9, 0.9))
     else:
         s_model = s_model_optimizer = "sub_lstm_model"
 
