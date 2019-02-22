@@ -85,7 +85,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                     if unroll and i > 0:
                         output_i, combine_l0 = s_model(output_boundary, inp_hidden=hidden[i - 1], layer0=True)
                     else:
-                        output_i, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True)
+                        output_i, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True,
+                                                               pos=pos_tensor[i: right_most_ner + 1],
+                                                               ent=ent_tensor[i: right_most_ner + 1],
+                                                               case=case_tensor[i: right_most_ner + 1])
                 else:
                     output_i = output[right_most_ner] - output[i]
 
@@ -112,7 +115,8 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
             else:
                 """TODO: fix this"""
                 # deal with remote edges like "so ... that" in 105005
-                # assert False, "sent %s cannot be processed for now" % str(train_passage.ID)
+                assert False, "sent %s cannot be processed for now" % str(train_passage.ID)
+
                 assert len(t_node_i_in_l1_legit_children) == 2, "assumed the number of discontinuity is 2"
                 right_most_word_id = get_child_idx_in_l0(t_node_i_in_l1, "right", reorder=True)
                 dis_word_attn_weight = a_model(output[i], output_2d, i)
@@ -122,7 +126,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                 else:
                     left_most_word_id = get_child_idx_in_l0(t_node_i_in_l1)
                     output_boundary_dis = output[left_most_word_id: i + 1]
-                    output_i_dis, combine_l0_dis, is_dis = s_model(output_boundary_dis, layer0=True, dis=True)
+                    output_i_dis, combine_l0_dis, is_dis = s_model(output_boundary_dis, layer0=True, dis=True,
+                                                                   pos=pos_tensor[left_most_word_id: i + 1],
+                                                                   ent=ent_tensor[left_most_word_id: i + 1],
+                                                                   case=case_tensor[left_most_word_id: i + 1])
                     unit_loss += criterion(dis_word_attn_weight, torch.tensor([left_most_word_id],
                                                                               dtype=torch.long, device=device))
                     unit_loss_num += 1
@@ -191,7 +198,11 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                                                       inp_hidden=hidden[left_most_child_idx - 1],
                                                                       layer0=True)
                     else:
-                        primary_parent_encoding, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True)
+                        primary_parent_encoding, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True,
+                                                                              pos=pos_tensor[left_most_child_idx: i + 1],
+                                                                              ent=ent_tensor[left_most_child_idx: i + 1],
+                                                                              case=case_tensor[
+                                                                                   left_most_child_idx: i + 1])
                 else:
                     primary_parent_encoding = output_i - output[left_most_child_idx]
 
@@ -232,6 +243,9 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                         continue
                     child_label = edge.tag
 
+                    if child_label == "T":
+                        child_label = "D"
+
                     if child in node_encoding:
                         child_encoding = node_encoding[child]
                     else:
@@ -243,7 +257,10 @@ def train_f_passage(train_passage, sent_tensor, model, model_optimizer, a_model,
                                 child_encoding, combine_l0 = s_model(output_boundary,
                                                                      inp_hidden=hidden[finding_left - 1])
                             else:
-                                child_encoding, combine_l0 = s_model(output_boundary)
+                                child_encoding, combine_l0 = s_model(output_boundary,
+                                                                     pos=pos_tensor[finding_left: finding_right + 1],
+                                                                     ent=ent_tensor[finding_left: finding_right + 1],
+                                                                     case=case_tensor[finding_left: finding_right + 1])
                         else:
                             child_encoding = output[finding_right] - output[finding_left]
 

@@ -200,14 +200,19 @@ class SubModel(nn.Module):
     not sure how many directions and layers we need
     not sure the dimension needed for ner_mapping
     """
-    def __init__(self):
+    def __init__(self, pos_vocab_size, ent_vocab_size):
         super(SubModel, self).__init__()
         self.num_directions = 2
         self.hidden_size= 500
+        self.total_hidden_size = 500
         self.input_size = 500
         self.num_layers = 2
         self.dropout = 0.3
         self.batch_size = 1
+
+        self.pos_emb_size = 20
+        self.ent_emb_size = 20
+        self.case_emb_size = 20
 
         self.hidden_size = self.hidden_size // self.num_directions
 
@@ -218,13 +223,21 @@ class SubModel(nn.Module):
 
         # use for predicting combining nodes from layer 0 to layer 1
         # 1 is to combine; 0 is to not combine
-        self.linear = nn.Linear(500, 100)
+
+        self.add_emb_info = False
+        if self.add_emb_info:
+            self.total_hidden_size += 2 * (self.pos_emb_size + self.ent_emb_size + self.case_emb_size)
+            self.pos_embedding = nn.Embedding(pos_vocab_size, self.pos_emb_size)
+            self.ent_embedding = nn.Embedding(ent_vocab_size, self.ent_emb_size)
+            self.case_embedding = nn.Embedding(2, self.case_emb_size)
+
+        self.linear = nn.Linear(self.total_hidden_size, 100)
         self.ner_mapping = nn.Linear(100, 2)
 
         # use to predict if it is discontinuity
         # 1: is discontinuity (only use the two nodes as the children of the parent node)
         # 0: is not discontinuity (use all the nodes as the children. the case for ners)
-        self.dis_linear = nn.Linear(500, 100)
+        self.dis_linear = nn.Linear(self.total_hidden_size, 100)
         self.dis_mapping = nn.Linear(100, 2)
 
         if use_both_ends == True:
@@ -236,7 +249,7 @@ class SubModel(nn.Module):
         return (torch.zeros(4, self.batch_size, self.hidden_size, device=device),
                 torch.zeros(4, self.batch_size, self.hidden_size, device=device))
 
-    def forward(self, input, inp_hidden="input_hidden", layer0=False, dis=False):
+    def forward(self, input, inp_hidden="input_hidden", layer0=False, dis=False, pos=None, ent=None, case=None):
         # if isinstance(inp_hidden, str):
         #     inp_hidden = self.hidden
 
@@ -262,16 +275,23 @@ class SubModel(nn.Module):
         b_j = output_j.index_select(2, torch.tensor([1], dtype=torch.long, device=device)).view(1, 250)
         added_output = torch.cat((f_j - f_i, b_i - b_j), 1)
 
+        if self.add_emb_info and dis is not None and ent is not None and case is not None:
+            emb_info_output = torch.cat((added_output, self.pos_embedding(pos[-1]), self.pos_embedding(pos[0]),
+                                        self.ent_embedding(ent[-1]), self.ent_embedding(ent[0]),
+                                        self.case_embedding(case[-1]), self.case_embedding(case[0])), 1)
+        else:
+            emb_info_output = added_output
+
         # nodes combination prediction
         is_ner_prob = 0
         if layer0:
-            h1 = self.linear(added_output)
+            h1 = self.linear(emb_info_output)
             h2 = self.ner_mapping(F.relu(h1))
             is_ner_prob = F.log_softmax(h2, dim=1)
 
         is_dis_prob = 0
         if dis:
-            h1_dis = self.dis_linear(added_output)
+            h1_dis = self.dis_linear(emb_info_output)
             h2_dis = self.dis_mapping(F.relu(h1_dis))
             is_dis_prob = F.log_softmax(h2_dis, dim=1)
             return added_output, is_ner_prob, is_dis_prob

@@ -139,7 +139,10 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                         new_node_enc, combine_l0 = s_model(output_boundary, inp_hidden=hidden[debug_left_most_id - 1],
                                                            layer0=True)
                     else:
-                        new_node_enc, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True)
+                        new_node_enc, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True,
+                                                                   pos=pos_tensor[debug_left_most_id: i + 1],
+                                                                   ent=ent_tensor[debug_left_most_id: i + 1],
+                                                                   case=case_tensor[debug_left_most_id: i + 1])
                         if using_rm_model:
                             output_boundary_rm = output_rm[debug_left_most_id: i + 1]
                             new_node_enc_rm, _ = s_model(output_boundary_rm)
@@ -151,6 +154,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                 # need to combine nodes in l0
 
                 # discontinuous unit
+                # if dis_topk_ind.data[0] == 1:
                 if dis_topk_ind.data[0] == 1 and propn_topk_ind.data[0] == 1:
                     dis_left_node_l0 = l0_node_list[top_k_ind]
                     dis_left_node_l1 = dis_left_node_l0.parents[0]
@@ -282,7 +286,10 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                 if unroll and left_most_idx > 0:
                     new_node_output, combine_l0 = s_model(output_boundary, inp_hidden=hidden[left_most_idx - 1])
                 else:
-                    new_node_output, combine_l0 = s_model(output_boundary)
+                    new_node_output, combine_l0 = s_model(output_boundary,
+                                                          pos=pos_tensor[left_most_idx: i + 1],
+                                                          ent=ent_tensor[left_most_idx: i + 1],
+                                                          case=case_tensor[left_most_idx: i + 1])
             else:
                 new_node_output = output[i] - output[left_most_idx]
 
@@ -310,7 +317,8 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                     if unroll and debug_left_most_id > 0:
                         r_new_node_enc, combine_l0 = s_model(output_boundary, inp_hidden=hidden[debug_left_most_id - 1])
                     else:
-                        r_new_node_enc, combine_l0 = s_model(output_boundary)
+                        r_new_node_enc, combine_l0 = s_model(output_boundary,
+
                         if using_rm_model:
                             output_boundary_rm = output_rm[debug_left_most_id: i + 1]
                             r_new_node_enc_rm, _ = s_model(output_boundary_rm)
