@@ -72,9 +72,9 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
     a_model = AModel().to(device)
     label_model = LabelModel(labels).to(device)
 
-    model_optimizer = optim.Adam(model.parameters())
-    a_model_optimizer = optim.Adam(a_model.parameters())
-    label_model_optimizer = optim.Adam(label_model.parameters())
+    model_optimizer = optim.Adam(model.parameters(), betas=(0.9, 0.9))
+    a_model_optimizer = optim.Adam(a_model.parameters(), betas=(0.9, 0.9))
+    label_model_optimizer = optim.Adam(label_model.parameters(), betas=(0.9, 0.9))
 
     if using_sub_model:
         s_model = SubModel().to(device)
