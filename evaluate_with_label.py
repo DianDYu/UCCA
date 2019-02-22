@@ -477,7 +477,7 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
         #     print("Error: %s in passage: %s" % (e, tgt_passage.ID))
 
     if testing_phase:
-        return 100, 100
+        return 100, 100, 100, 100
 
     labeled_f1 = calculate_f1(total_labeled[0], total_labeled[1], total_labeled[2])
     unlabeled_f1 = calculate_f1(total_unlabeled[0], total_unlabeled[1], total_unlabeled[2])
