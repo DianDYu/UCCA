@@ -6,9 +6,10 @@ import torch
 from models import RNNModel, AModel, LabelModel, Vocab, SubModel, RemoteModel
 from io_file import get_pos_tensor, loading_data, loading_data_passsage
 from evaluate_with_label import get_validation_accuracy
-from with_label import labels, label2index
+# from with_label import labels, label2index
 
-from io_file import read_passages, passage_loading_data, get_text, tensorFromSentence, get_ent_tensor, get_case_tensor
+from io_file import read_passages, passage_loading_data, get_text, tensorFromSentence, get_ent_tensor, \
+    get_case_tensor, labels, label2index
 from config import parse_opts
 
 logging.basicConfig(format = '%(message)s',
@@ -88,7 +89,7 @@ def load_test_model(checkpoint_path):
     model = RNNModel(vocab_size, pos_vocab_size, ent_vocab_size, use_pretrain=False)
     a_model = AModel()
     label_model = LabelModel(labels)
-    s_model = SubModel()
+    s_model = SubModel(pos_vocab_size, ent_vocab_size)
     rm_model = RemoteModel()
     rm_lstm_model = copy.deepcopy(a_model)
     model.load_state_dict(checkpoint['model'])
