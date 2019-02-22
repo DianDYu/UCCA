@@ -57,7 +57,7 @@ class RNNModel(nn.Module):
         self.hidden_size= 500
         self.input_size = 300
         self.num_layers = 2
-        self.dropout = 0.3
+        self.dropout = 0.2
         self.batch_size = 1
         self.pos_emb_size = 20
         self.ent_emb_size = 20
