@@ -262,4 +262,4 @@ def save_test_model(model_e, a_model_e, label_model_e, s_model_e, rm_model_e, rm
         'pos_vocab_size': pos_n_words,
         'ent_vocab_size': ent_n_words
     }
-    torch.save(checkpoint, "%s_epoch_%d_f1_%.2f.pt" % (save_dir, epoch, f1 * 100))
+    torch.save(checkpoint, "%s_e_%d_%.2f.pt" % (save_dir, epoch, f1 * 100))
