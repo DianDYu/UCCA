@@ -88,6 +88,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         rm_model = RemoteModel().to(device)
         rm_model_optimizer = optim.Adam(rm_model.parameters(), betas=(0.9, 0.9))
         rm_lstm_model = copy.deepcopy(model)
+        rm_lstm_model.lstm.flatten_parameters()
         rm_lstm_optimizer = optim.Adam(rm_lstm_model.parameters(), betas=(0.9, 0.9))
     else:
         rm_model = rm_model_optimizer = "remote_model"
