@@ -91,7 +91,7 @@ def load_test_model(checkpoint_path):
     label_model = LabelModel(labels)
     s_model = SubModel(pos_vocab_size, ent_vocab_size)
     rm_model = RemoteModel()
-    rm_lstm_model = copy.deepcopy(a_model)
+    rm_lstm_model = copy.deepcopy(model)
     model.load_state_dict(checkpoint['model'])
     a_model.load_state_dict(checkpoint['a_model'])
     label_model.load_state_dict(checkpoint['label_model'])
