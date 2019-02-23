@@ -67,4 +67,8 @@ def parse_opts():
     parser.add_argument('--testing_dev',
                         action='store_true',
                         help="train on all the training set and test on the dev set")
+    parser.add_argument("--n",
+                        type=str,
+                        default="N/A",
+                        help="notes")
     return parser.parse_args()
