@@ -343,6 +343,10 @@ class LabelModel(nn.Module):
         self.fc = nn.Linear(500, 100)
         self.map_label = nn.Linear(100, self.label_size)
 
+        # self.affine = nn.Linear(500, 500)
+        # self.concat_linear = nn.Linear(1000, 500)
+        # self.fc_1 = nn.Linear(500, 100)
+
     def forward(self, parent_enc, child_enc):
         """TODO: not sure if we should use matrix multip"""
         # parent_enc: (1, hidden_size)
@@ -370,6 +374,16 @@ class LabelModel(nn.Module):
         # add a fully connected layer before the output layer
         reduce_concat_enc = F.relu(self.fc(child_enc))
         prob = F.log_softmax(self.map_label(reduce_concat_enc), dim=1)
+
+        # a_parent_enc = F.relu(self.affine(parent_enc))
+        # a_child_enc = F.relu(self.affine(child_enc))
+        # concat_enc = torch.cat((a_parent_enc, a_child_enc), 1)
+        # total_enc = F.relu(self.concat_linear(concat_enc))
+        # interm_enc = F.relu(self.fc_1(total_enc))
+        # posterior_prob = F.log_softmax(self.map_label(interm_enc), dim=1)
+        # total_prob = prob + posterior_prob
+        # return total_prob
+
         return prob
 
 
