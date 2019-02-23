@@ -6,7 +6,7 @@ from ucca import ioutil, core, layer0, layer1
 from ucca.layer1 import FoundationalNode
 from evaluation import evaluate as evaluator
 
-from train_from_passage import get_primary_parent, get_legit_edges
+from train_from_passage import get_primary_parent, get_legit_edges, get_child_idx_in_l0
 
 import torch
 
@@ -281,6 +281,8 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
         for r in range(1, max_recur + 1):
             if using_s_model:
                 output_boundary = output[left_most_idx: i + 1]
+                if left_most_idx == i + 1:
+                    print(left_most_idx)
                 if unroll and left_most_idx > 0:
                     new_node_output, combine_l0 = s_model(output_boundary, inp_hidden=hidden[left_most_idx - 1])
                 else:
@@ -383,7 +385,7 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
     # passage = clean_nodes(passage)
 
     # print(passage.ID)
-    # ioutil.write_passage(passage)
+    # ioutil.write_passage(passage, outdir="pred_test/")
 
     return passage
 
@@ -429,15 +431,19 @@ def get_left_most_id(node):
     :param node:
     :return:
     """
-    while len(node.children) > 0:
-        legit_edges = get_legit_edges(node)
-        node = legit_edges[0].child
+    if len(node.children) == 0:
+        return int(node.ID.split(core.Node.ID_SEPARATOR)[-1]) - 1
+    return get_child_idx_in_l0(node)
 
-    left_most_ID = node.ID
-    index_in_l0 = left_most_ID.split(core.Node.ID_SEPARATOR)[-1]
-
-    # index in l0 starts with 1. To get the index in the l0 list, minus 1
-    return int(index_in_l0) - 1
+    # while len(node.children) > 0:
+    #     legit_edges = get_legit_edges(node)
+    #     node = legit_edges[0].child
+    #
+    # left_most_ID = node.ID
+    # index_in_l0 = left_most_ID.split(core.Node.ID_SEPARATOR)[-1]
+    #
+    # # index in l0 starts with 1. To get the index in the l0 list, minus 1
+    # return int(index_in_l0) - 1
 
 
 def get_right_most_id(node):
@@ -446,15 +452,18 @@ def get_right_most_id(node):
     :param node:
     :return:
     """
-    while len(node.children) > 0:
-        legit_edges = get_legit_edges(node)
-        node = legit_edges[-1].child
-
-    right_most_ID = node.ID
-    index_in_l0 = right_most_ID.split(core.Node.ID_SEPARATOR)[-1]
-
-    # index in l0 starts with 1. To get the index in the l0 list, minus 1
-    return int(index_in_l0) - 1
+    if len(node.children) == 0:
+        return int(node.ID.split(core.Node.ID_SEPARATOR)[-1]) - 1
+    return get_child_idx_in_l0(node, direction="right")
+    # while len(node.children) > 0:
+    #     legit_edges = get_legit_edges(node)
+    #     node = legit_edges[-1].child
+    #
+    # right_most_ID = node.ID
+    # index_in_l0 = right_most_ID.split(core.Node.ID_SEPARATOR)[-1]
+    #
+    # # index in l0 starts with 1. To get the index in the l0 list, minus 1
+    # return int(index_in_l0) - 1
 
 
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, rm_model, rm_lstm_model,
