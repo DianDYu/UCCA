@@ -276,12 +276,21 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                             break
                     left_most_idx = get_left_most_id(new_node)
 
+                    if left_most_idx > top_k_ind:
+                        left_most_idx = top_k_ind
+
         # recursive call to see if need to create new node
         for r in range(1, max_recur + 1):
             if using_s_model:
                 output_boundary = output[left_most_idx: i + 1]
-                if left_most_idx == i + 1:
+                if left_most_idx >= i + 1:
+                    print("ERROR:")
+                    print("Combined?")
+                    print(combined)
+                    print("left_most_idx")
                     print(left_most_idx)
+                    print("i")
+                    print(i)
                 if unroll and left_most_idx > 0:
                     new_node_output, combine_l0 = s_model(output_boundary, inp_hidden=hidden[left_most_idx - 1])
                 else:
