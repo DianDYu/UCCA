@@ -238,7 +238,7 @@ def passage_train_iters(n_words, t_text_tensor, t_text, t_sent_ids, t_pos, t_pas
         # writer.add_text('unlabeled_f1_remote', 'unlabeled_f1_remote at epoch %d: %d' % (unlabeled_f1_remote, epoch))
 
         if not opts.not_save:
-            if labeled_f1 > best_score:
+            if labeled_f1 > 0:
                 best_score = labeled_f1
                 save_test_model(model, a_model, label_model, s_model, rm_model, rm_lstm_model, n_words,
                                 pos_vocab.n_words, ent_vocab.n_words, epoch, labeled_f1, opts.save_dir)
