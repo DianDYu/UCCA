@@ -528,11 +528,22 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
         # print(tgt_passage.ID)
         # print(tgt_passage)
 
+        debugging_remote += 1
+        if debugging_remote < debugging_remote_min:
+            continue
+        if debugging_remote == debugging_remote_max:
+            break
+        # print(tgt_passage.ID)
         with torch.no_grad():
+            # try:
             pred_passage = evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_model,
                                                rm_lstm_model, ori_sent,
                                                tgt_passage, pos, pos_tensor, labels, label2index, ent,
                                                ent_tensor, case_tensor, unroll)
+            # except Exception as e:
+            #     print(e)
+            #     print(tgt_passage.ID)
+            #     assert False
 
         if testing_phase:
             ioutil.write_passage(pred_passage, outdir="pred_test/")
