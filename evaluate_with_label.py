@@ -429,9 +429,31 @@ def get_parent_node(node):
     :param node:
     :return:
     """
+    # parent_node = node
+    # while len(parent_node.parents) > 0:
+    #     parent_node = parent_node.parents[0]
+    #
+    # return parent_node
+
     parent_node = node
-    while len(parent_node.parents) > 0:
-        parent_node = parent_node.parents[0]
+    # while len(parent_node.parents) > 0:
+    #     potential_parent_node = parent_node.parents[0]
+    #     no_more_primary = True
+    #     for edge in potential_parent_node.outgoing:
+    #         if edge.child == parent_node and not edge.attrib.get("remote"):
+    #             parent_node = potential_parent_node
+    #             no_more_primary = False
+    #     if no_more_primary:
+    #         return parent_node
+    while len(parent_node.incoming) > 0:
+        found = False
+        for edge in parent_node.incoming:
+            if not edge.attrib.get("remote"):
+                parent_node = parent_node.incoming[0].parent
+                found = True
+                break
+        if not found:
+            return parent_node
 
     return parent_node
 
