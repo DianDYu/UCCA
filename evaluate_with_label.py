@@ -485,18 +485,18 @@ def get_right_most_id(node):
     :param node:
     :return:
     """
-    if len(node.children) == 0:
-        return int(node.ID.split(core.Node.ID_SEPARATOR)[-1]) - 1
-    return get_child_idx_in_l0(node, direction="right")
-    # while len(node.children) > 0:
-    #     legit_edges = get_legit_edges(node)
-    #     node = legit_edges[-1].child
-    #
-    # right_most_ID = node.ID
-    # index_in_l0 = right_most_ID.split(core.Node.ID_SEPARATOR)[-1]
-    #
-    # # index in l0 starts with 1. To get the index in the l0 list, minus 1
-    # return int(index_in_l0) - 1
+    # if len(node.children) == 0:
+    #     return int(node.ID.split(core.Node.ID_SEPARATOR)[-1]) - 1
+    # return get_child_idx_in_l0(node, direction="right")
+    while len(node.children) > 0:
+        legit_edges = get_legit_edges(node)
+        node = legit_edges[-1].child
+
+    right_most_ID = node.ID
+    index_in_l0 = right_most_ID.split(core.Node.ID_SEPARATOR)[-1]
+
+    # index in l0 starts with 1. To get the index in the l0 list, minus 1
+    return int(index_in_l0) - 1
 
 
 def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_model, rm_model, rm_lstm_model,
