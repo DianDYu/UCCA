@@ -133,25 +133,24 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                 debug_left_most_id = get_left_most_id(parent_node)
                 # debug_left_most_id = top_k_ind
 
-                if using_s_model:
-                    output_boundary = output[debug_left_most_id: i + 1]
-                    if unroll and debug_left_most_id > 0:
-                        new_node_enc, combine_l0 = s_model(output_boundary, inp_hidden=hidden[debug_left_most_id - 1],
-                                                           layer0=True)
-                    else:
-                        new_node_enc, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True)
-                        if using_rm_model:
-                            output_boundary_rm = output_rm[debug_left_most_id: i + 1]
-                            new_node_enc_rm, _ = s_model(output_boundary_rm)
-                else:
-                    new_node_enc = output[i] - output[debug_left_most_id]
+                # if using_s_model:
+                #     output_boundary = output[debug_left_most_id: i + 1]
+                #     if unroll and debug_left_most_id > 0:
+                #         new_node_enc, combine_l0 = s_model(output_boundary, inp_hidden=hidden[debug_left_most_id - 1],
+                #                                            layer0=True)
+                #     else:
+                output_boundary = output[debug_left_most_id: i + 1]
+                new_node_enc, combine_l0, is_dis = s_model(output_boundary, layer0=True, dis=True)
+                if using_rm_model:
+                    output_boundary_rm = output_rm[debug_left_most_id: i + 1]
+                    new_node_enc_rm, _ = s_model(output_boundary_rm)
+                # else:
+                #     new_node_enc = output[i] - output[debug_left_most_id]
 
                 propn_topk_value, propn_topk_ind = torch.topk(combine_l0, 1)
                 dis_topk_value, dis_topk_ind = torch.topk(is_dis, 1)
                 # need to combine nodes in l0
 
-                # discontinuous unit
-                # if dis_topk_ind.data[0] == 1:
                 if dis_topk_ind.data[0] == 1 and propn_topk_ind.data[0] == 1:
                     dis_left_node_l0 = l0_node_list[top_k_ind]
                     dis_left_node_l1 = dis_left_node_l0.parents[0]
