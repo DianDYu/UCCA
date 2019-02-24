@@ -512,6 +512,12 @@ def get_validation_accuracy(val_text_tensor, model, a_model, label_model, s_mode
 
     top_10_to_writeout = 10
 
+    debugging_remote = 0
+    debugging_remote_min = 0
+    debugging_remote_max = -1
+    if debugging_remote_max > -1 or debugging_remote_min > 0:
+        print("WARNING: Only test on part of sents")
+
     for sent_tensor, ori_sent, tgt_passage, pos, pos_tensor, ent, ent_tensor, case_tensor in \
             zip(val_text_tensor, val_text, val_passages, val_pos, val_pos_tensor, val_ent, val_ent_tensor,
                 val_case_tensor):
