@@ -317,6 +317,9 @@ def evaluate_with_label(sent_tensor, model, a_model, label_model, s_model, rm_mo
                 """TODO: same as before. check this. not sure if it should be the left most child or top_k_ind"""
                 debug_left_most_id = get_left_most_id(r_parent_node)
 
+                if debug_left_most_id > r_top_k_ind:
+                    debug_left_most_id = r_top_k_ind
+
                 if using_s_model:
                     output_boundary = output[debug_left_most_id: i + 1]
                     if unroll and debug_left_most_id > 0:
