@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 opts = parse_opts()
 seed = opts.seed
+ubuntu_phase = opts.ubuntu
 debugging = opts.debugging
 testing_phase = opts.testing
 unroll = opts.unroll
@@ -35,6 +36,8 @@ torch.manual_seed(seed)
 # # dev_file_dir = "/home/dianyu/Downloads/train&dev-data-17.9/train-xml/UCCA_English-Wiki/590021.xml"
 # vocab_dir = "vocab.pt"
 # pos_vocab_dir = "pos_vocab.pt"
+
+
 
 if testing_phase:
     dev_file_dir = "real_testing.pt"
@@ -64,6 +67,12 @@ else:
     ent_vocab_dir = "dbg_passage_ent_vocab.pt"
 
     # checkpoint_path = "/home/dianyu/Desktop/P/UCCA/models/epoch_3_f1_14.26.pt"
+
+if ubuntu_phase:
+    # dev_file_dir = ""
+    vocab_dir = "ubuntu_vocab.pt"
+    pos_vocab_dir = "real_pos_vocab.pt"
+    ent_vocab_dir = "real_ent_vocab.pt"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -125,13 +134,15 @@ def load_test_model(checkpoint_path):
 
 
 def main():
+    # print(checkpoint_path)
     if not opts.reading_data:
         dev_ids, dev_text, dev_text_tensor, dev_passages, \
             dev_pos, dev_ent, dev_head, dev_case = passage_loading_data(dev_file_dir)
     else:
         dev_ids, dev_text, dev_text_tensor, dev_passages, dev_pos, \
             dev_ent, dev_head, dev_case = \
-            read_ind_file("/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/")
+            read_ind_file("/home/dianyu/Desktop/P/UCCA/ubuntu_data/10006.xml")
+            # read_ind_file("/home/dianyu/Downloads/train&dev-data-17.9/dev-xml/UCCA_English-Wiki/689002.xml")
 
     # vocab = torch.load(vocab_dir)
 
@@ -149,16 +160,17 @@ def main():
 
     model_r, a_model_r, label_model_r, s_model_r, rm_model_r, rm_lstm_modrl_r = load_test_model(checkpoint_path)
 
+    write_output_xml = testing_phase or ubuntu_phase
     labeled_f1, unlabeled_f1, labeled_f1_remote, unlabeled_f1_remote = \
         get_validation_accuracy(dev_text_tensor, model_r, a_model_r,
                                 label_model_r, s_model_r, rm_model_r, rm_lstm_modrl_r, dev_text, dev_passages,
                                 dev_pos, pos_tensor, labels, label2index, dev_ent,
                                 ent_tensor, case_tensor, unroll,
-                                eval_type="labeled", testing=False, testing_phase=testing_phase)
+                                eval_type="labeled", testing=False, testing_phase=write_output_xml)
 
     logger.info("evaluated on %d passages" % len(dev_passages))
 
-    if not testing_phase:
+    if not testing_phase and not ubuntu_phase:
         logger.info("validation f1 labeled: %.4f" % labeled_f1)
         logger.info("validation f1 unlabeled: %.4f" % unlabeled_f1)
         logger.info("validation f1 labeled_remote: %.4f" % labeled_f1_remote)

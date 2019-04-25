@@ -10,6 +10,9 @@ def parse_opts():
     parser.add_argument("--testing",
                         action='store_true',
                         help="testing mode for final result on the test set")
+    parser.add_argument("--ubuntu",
+                        action='store_true',
+                        help="testing on ubuntu dataset")
     parser.add_argument("--reading_data",
                         action='store_true',
                         help="if true, read data from passages; other wise load preprocessed data in torch file")
